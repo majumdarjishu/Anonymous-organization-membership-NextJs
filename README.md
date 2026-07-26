@@ -1,4 +1,4 @@
-# Anonymous Organization Membership
+# Anonymous-organization
 
 A Privacy-Preserving dApp built on the Midnight Network.
 
