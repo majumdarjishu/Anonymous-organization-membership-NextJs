@@ -1,0 +1,44 @@
+name: Midnight dApp CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js 22.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 22.x
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Midnight tools
+      run: |
+        npm install -g @midnight-ntwrk/compact-cli
+        compact --version
+        
+    - name: Compile Contract
+      run: npm run compile
+      
+    - name: Build TypeScript
+      run: npm run build
+      
+    - name: Build UI
+      run: |
+        cd ui
+        npm install
+        npm run build
+
+    # Test disabled in CI without a local Midnight network
+    # - name: End-to-End Test
+    #   run: npm run test:e2e
