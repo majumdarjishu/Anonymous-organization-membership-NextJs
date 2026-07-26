@@ -12,7 +12,7 @@ export function Credentials() {
   const credentials = [
     {
       id: 'CRED-8A2F9-001',
-      org: 'AnonOrg Alpha',
+      org: 'Jishu Org Alpha',
       issueDate: '2026-07-26',
       expiryDate: '2027-07-26',
       type: 'Premium Member',

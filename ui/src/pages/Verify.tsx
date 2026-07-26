@@ -133,7 +133,7 @@ export function Verify() {
                 <div className="bg-gray-50 rounded-lg p-4 text-left border border-gray-200 mb-8">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="text-gray-500">Organization ID:</div>
-                    <div className="font-mono text-gray-900 truncate">AnonOrg-1</div>
+                    <div className="font-mono text-gray-900 truncate">Jishu Org-1</div>
                     <div className="text-gray-500">Verification Time:</div>
                     <div className="text-gray-900">{new Date().toLocaleString()}</div>
                     <div className="text-gray-500">Commitment Hash:</div>

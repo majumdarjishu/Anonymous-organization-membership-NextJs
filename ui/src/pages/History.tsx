@@ -13,7 +13,7 @@ export function History() {
     {
       id: 'tx_8a92b1...',
       timestamp: new Date().toLocaleString(),
-      org: 'AnonOrg Alpha',
+      org: 'Jishu Org Alpha',
       result: 'Verified',
       hash: '0x3f8a92b1c4e7d5...',
       status: 'Active'

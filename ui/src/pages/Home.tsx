@@ -15,7 +15,7 @@ export function Home() {
 
       {!walletAddress ? (
         <div className="card" style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
-          <h2>Welcome to AnonOrg</h2>
+          <h2>Welcome to Jishu Org</h2>
           <p className="desc" style={{ marginBottom: '2rem' }}>
             Please connect your Lace wallet with the Midnight plugin enabled to get started.
           </p>

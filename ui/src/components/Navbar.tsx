@@ -33,7 +33,7 @@ export function Navbar() {
             <div className="flex items-center">
               <Link to="/" className="flex items-center space-x-2">
                 <Shield className="h-7 w-7 text-primary-600" />
-                <span className="text-xl font-bold text-gray-900 tracking-tight">AnonOrg</span>
+                <span className="text-xl font-bold text-gray-900 tracking-tight">Jishu Org</span>
               </Link>
               
               <div className="hidden md:ml-10 md:flex md:space-x-4">
