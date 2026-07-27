@@ -15,8 +15,8 @@ A privacy-preserving zero-knowledge organization membership platform built on th
 
 | Resource | Link |
 |---|---|
-| 🌐 **Live Web Application** | [https://anonymous-organization.vercel.app/](https://anonymous-organization.vercel.app/) |
-| 📺 **YouTube Demo Video** | _Coming Soon_ |
+| 🌐 **Live Web Application** | [https://anonymous-organization-38yc-blond.vercel.app/](https://anonymous-organization-38yc-blond.vercel.app/) |
+| 📺 **YouTube Demo Video** | [https://youtu.be/aSTYYqxHGUA](https://youtu.be/aSTYYqxHGUA) |
 | 📦 **GitHub Repository** | [https://github.com/majumdarjishu/Anonymous-organization](https://github.com/majumdarjishu/Anonymous-organization) |
 | ⚙️ **CI/CD Workflow** | [.github/workflows/ci.yml](.github/workflows/ci.yml) |
 
