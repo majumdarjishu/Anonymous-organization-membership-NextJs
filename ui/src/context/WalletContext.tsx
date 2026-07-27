@@ -33,6 +33,13 @@ export interface HistoryRecord {
   blockHeight: number;
 }
 
+export interface AllowlistItem {
+  id: string;
+  commitment: string;
+  org: string;
+  addedAt: string;
+}
+
 interface WalletContextType {
   walletAddress: string | null;
   status: string;
@@ -40,6 +47,7 @@ interface WalletContextType {
   memberCount: number;
   credentials: CredentialItem[];
   history: HistoryRecord[];
+  allowlist: AllowlistItem[];
   connectWallet: () => Promise<void>;
   connectDemoWallet: () => void;
   disconnectWallet: () => void;
@@ -48,6 +56,8 @@ interface WalletContextType {
   revokeCredential: (id: string) => void;
   renewCredential: (id: string) => void;
   addHistoryRecord: (record: Omit<HistoryRecord, 'id' | 'timestamp' | 'blockHeight'>) => void;
+  addAllowlistCommitment: (commitment: string, org: string) => void;
+  removeAllowlistCommitment: (id: string) => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -98,6 +108,27 @@ const DEFAULT_HISTORY: HistoryRecord[] = [
   }
 ];
 
+const DEFAULT_ALLOWLIST: AllowlistItem[] = [
+  {
+    id: 'COMMIT-001',
+    commitment: '0x3f8a92b1c4e7d5a089124ef5610294ab83c19e47',
+    org: 'Jishu Org Alpha',
+    addedAt: '2026-07-20'
+  },
+  {
+    id: 'COMMIT-002',
+    commitment: '0x8b21ef490c125a77b8190d6431e5f884a0c2191b',
+    org: 'Midnight Privacy Guild',
+    addedAt: '2026-07-22'
+  },
+  {
+    id: 'COMMIT-003',
+    commitment: '0x7e1029a4f61b5c820d9182374e5021fa98c3412d',
+    org: 'Confidential Enterprise',
+    addedAt: '2026-07-25'
+  }
+];
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(() => {
     return localStorage.getItem('midnight_wallet_address');
@@ -120,6 +151,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : DEFAULT_HISTORY;
   });
 
+  const [allowlist, setAllowlist] = useState<AllowlistItem[]>(() => {
+    const saved = localStorage.getItem('midnight_allowlist');
+    return saved ? JSON.parse(saved) : DEFAULT_ALLOWLIST;
+  });
+
   useEffect(() => {
     localStorage.setItem('midnight_credentials', JSON.stringify(credentials));
   }, [credentials]);
@@ -127,6 +163,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('midnight_history', JSON.stringify(history));
   }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem('midnight_allowlist', JSON.stringify(allowlist));
+  }, [allowlist]);
 
   useEffect(() => {
     if (walletAddress) {
@@ -150,7 +190,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       setStatus('connecting');
       if (!window.midnight?.mnLace) {
-        // Automatically switch to demo connection if plugin is not installed
         connectDemoWallet();
         return;
       }
@@ -161,7 +200,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setIsAdmin(true);
     } catch (err) {
       console.error('Connection failed:', err);
-      // Fallback to demo mode if extension fails
       connectDemoWallet();
     }
   };
@@ -209,8 +247,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       blockHeight: 1428600 + Math.floor(Math.random() * 500)
     };
     setHistory(prev => [newRecord, ...prev]);
-    // increment credential verification count if matching org
     setCredentials(prev => prev.map(c => c.org === record.org ? { ...c, count: c.count + 1 } : c));
+  };
+
+  const addAllowlistCommitment = (commitment: string, org: string) => {
+    const newItem: AllowlistItem = {
+      id: `COMMIT-${String(allowlist.length + 1).padStart(3, '0')}`,
+      commitment,
+      org,
+      addedAt: new Date().toISOString().split('T')[0]
+    };
+    setAllowlist(prev => [newItem, ...prev]);
+    setMemberCount(prev => prev + 1);
+  };
+
+  const removeAllowlistCommitment = (id: string) => {
+    setAllowlist(prev => prev.filter(a => a.id !== id));
   };
 
   return (
@@ -221,6 +273,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       memberCount,
       credentials,
       history,
+      allowlist,
       connectWallet,
       connectDemoWallet,
       disconnectWallet,
@@ -228,7 +281,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       addCredential,
       revokeCredential,
       renewCredential,
-      addHistoryRecord
+      addHistoryRecord,
+      addAllowlistCommitment,
+      removeAllowlistCommitment
     }}>
       {children}
     </WalletContext.Provider>
