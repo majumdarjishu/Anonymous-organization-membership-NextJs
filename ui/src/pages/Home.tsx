@@ -19,7 +19,7 @@ export function Home() {
           <p className="desc" style={{ marginBottom: '2rem' }}>
             Please connect your Lace wallet with the Midnight plugin enabled to get started.
           </p>
-          <button onClick={connectWallet} style={{ width: '100%' }}>Connect Lace Wallet</button>
+          <button onClick={() => connectWallet()} style={{ width: '100%' }}>Connect Lace Wallet</button>
         </div>
       ) : (
         <div className="grid">

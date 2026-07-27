@@ -3,12 +3,24 @@ import type { ReactNode } from 'react';
 
 declare global {
   interface Window {
-    midnight?: {
-      mnLace?: {
-        enable: () => Promise<any>;
-      };
-    };
+    midnight?: Record<string, {
+      enable: () => Promise<any>;
+      name?: string;
+      icon?: string;
+      apiVersion?: string;
+    }>;
+    cardano?: Record<string, {
+      enable: () => Promise<any>;
+      name?: string;
+      icon?: string;
+      apiVersion?: string;
+    }>;
   }
+}
+
+export interface WalletProviderInfo {
+  id: string;
+  name: string;
 }
 
 export interface CredentialItem {
@@ -42,13 +54,16 @@ export interface AllowlistItem {
 
 interface WalletContextType {
   walletAddress: string | null;
+  walletName: string;
   status: string;
+  connectionError: string | null;
   isAdmin: boolean;
   memberCount: number;
   credentials: CredentialItem[];
   history: HistoryRecord[];
   allowlist: AllowlistItem[];
-  connectWallet: () => Promise<void>;
+  detectedWallets: WalletProviderInfo[];
+  connectWallet: (walletKey?: string) => Promise<void>;
   connectDemoWallet: () => void;
   disconnectWallet: () => void;
   incrementMemberCount: () => void;
@@ -61,6 +76,82 @@ interface WalletContextType {
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+export function getDetectedWallets(): WalletProviderInfo[] {
+  const providers: WalletProviderInfo[] = [];
+
+  if (typeof window !== 'undefined') {
+    if (window.midnight) {
+      for (const key of Object.keys(window.midnight)) {
+        if (window.midnight[key] && typeof window.midnight[key].enable === 'function') {
+          const name = window.midnight[key].name || (key === 'mnLace' ? 'Midnight Lace Wallet' : `Midnight Wallet (${key})`);
+          providers.push({ id: `midnight.${key}`, name });
+        }
+      }
+    }
+
+    if (window.cardano?.lace && typeof window.cardano.lace.enable === 'function') {
+      if (!providers.some(p => p.name.toLowerCase().includes('lace'))) {
+        providers.push({ id: 'cardano.lace', name: 'Lace Wallet' });
+      }
+    }
+  }
+
+  return providers;
+}
+
+async function extractAddressFromApi(api: any): Promise<string> {
+  if (!api) throw new Error("Wallet provider returned empty connection API.");
+
+  // 1. Try api.state() (standard Midnight Lace DApp connector)
+  if (typeof api.state === 'function') {
+    try {
+      const state = await api.state();
+      if (typeof state === 'string') return state;
+      if (state) {
+        const addr = state.address || state.unshieldedAddress || state.shieldedAddress || state.accountAddress || state.coinPublicKey;
+        if (addr && typeof addr === 'string') return addr;
+      }
+    } catch (e) {
+      console.warn("api.state() evaluation warning:", e);
+    }
+  }
+
+  // 2. Try api.getUnshieldedAddress()
+  if (typeof api.getUnshieldedAddress === 'function') {
+    try {
+      const addr = await api.getUnshieldedAddress();
+      if (addr && typeof addr === 'string') return addr;
+    } catch (e) {
+      console.warn("api.getUnshieldedAddress() evaluation warning:", e);
+    }
+  }
+
+  // 3. Try api.getAddresses() / api.getAccounts()
+  if (typeof api.getAddresses === 'function') {
+    try {
+      const addrs = await api.getAddresses();
+      if (Array.isArray(addrs) && addrs.length > 0 && typeof addrs[0] === 'string') return addrs[0];
+    } catch (e) {
+      console.warn("api.getAddresses() evaluation warning:", e);
+    }
+  }
+
+  if (typeof api.getAccounts === 'function') {
+    try {
+      const accs = await api.getAccounts();
+      if (Array.isArray(accs) && accs.length > 0 && typeof accs[0] === 'string') return accs[0];
+    } catch (e) {
+      console.warn("api.getAccounts() evaluation warning:", e);
+    }
+  }
+
+  // 4. Try synchronous address properties
+  if (api.address && typeof api.address === 'string') return api.address;
+  if (api.unshieldedAddress && typeof api.unshieldedAddress === 'string') return api.unshieldedAddress;
+
+  throw new Error("Connected to wallet, but could not extract a valid account address from wallet API.");
+}
 
 const DEFAULT_CREDENTIALS: CredentialItem[] = [
   {
@@ -133,13 +224,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(() => {
     return localStorage.getItem('midnight_wallet_address');
   });
+
+  const [walletName, setWalletName] = useState<string>(() => {
+    return localStorage.getItem('midnight_wallet_name') || 'Midnight Lace Wallet';
+  });
   
   const [status, setStatus] = useState<string>(() => {
     return localStorage.getItem('midnight_wallet_address') ? 'connected' : 'disconnected';
   });
+
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
   const [isAdmin, setIsAdmin] = useState<boolean>(true);
   const [memberCount, setMemberCount] = useState<number>(6);
+  const [detectedWallets, setDetectedWallets] = useState<WalletProviderInfo[]>([]);
 
   const [credentials, setCredentials] = useState<CredentialItem[]>(() => {
     const saved = localStorage.getItem('midnight_credentials');
@@ -157,6 +255,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    setDetectedWallets(getDetectedWallets());
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('midnight_credentials', JSON.stringify(credentials));
   }, [credentials]);
 
@@ -171,49 +273,87 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (walletAddress) {
       localStorage.setItem('midnight_wallet_address', walletAddress);
+      localStorage.setItem('midnight_wallet_name', walletName);
     } else {
       localStorage.removeItem('midnight_wallet_address');
+      localStorage.removeItem('midnight_wallet_name');
     }
-  }, [walletAddress]);
+  }, [walletAddress, walletName]);
 
-  useEffect(() => {
-    if (window.midnight?.mnLace) {
-      try {
-        if (!walletAddress) setStatus('ready to connect');
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  }, [walletAddress]);
-
-  const connectWallet = async () => {
+  const connectWallet = async (walletKeyParam?: string | unknown) => {
+    const walletKey = typeof walletKeyParam === 'string' ? walletKeyParam : undefined;
     try {
       setStatus('connecting');
-      if (!window.midnight?.mnLace) {
-        connectDemoWallet();
-        return;
+      setConnectionError(null);
+
+      let provider: any = null;
+      let connectedWalletName = 'Midnight Lace Wallet';
+
+      if (walletKey) {
+        if (walletKey.startsWith('midnight.') && window.midnight) {
+          const subKey = walletKey.replace('midnight.', '');
+          provider = window.midnight[subKey];
+          connectedWalletName = provider?.name || (subKey === 'mnLace' ? 'Midnight Lace Wallet' : subKey);
+        } else if (walletKey === 'cardano.lace' && window.cardano?.lace) {
+          provider = window.cardano.lace;
+          connectedWalletName = 'Lace Wallet';
+        }
+      } else {
+        // Auto-detect available Midnight wallet extension
+        if (window.midnight?.mnLace) {
+          provider = window.midnight.mnLace;
+          connectedWalletName = 'Midnight Lace Wallet';
+        } else if (window.midnight) {
+          const firstKey = Object.keys(window.midnight)[0];
+          if (firstKey && window.midnight[firstKey]) {
+            provider = window.midnight[firstKey];
+            connectedWalletName = provider?.name || (firstKey === 'mnLace' ? 'Midnight Lace Wallet' : firstKey);
+          }
+        } else if (window.cardano?.lace) {
+          provider = window.cardano.lace;
+          connectedWalletName = 'Lace Wallet';
+        }
       }
-      const api = await window.midnight.mnLace.enable();
-      const address = await api.state().then((s: any) => s?.address || 'mn1_lace_0x7a8910b2d');
-      setWalletAddress(address);
+
+      if (!provider || typeof provider.enable !== 'function') {
+        const errorMsg = 'No Midnight or Lace wallet extension detected in your browser. Please install the Lace Midnight extension.';
+        setConnectionError(errorMsg);
+        setStatus('error');
+        throw new Error(errorMsg);
+      }
+
+      // Prompt real wallet authorization popup
+      const api = await provider.enable();
+      const realAddress = await extractAddressFromApi(api);
+
+      setWalletAddress(realAddress);
+      setWalletName(connectedWalletName);
       setStatus('connected');
       setIsAdmin(true);
-    } catch (err) {
-      console.error('Connection failed:', err);
-      connectDemoWallet();
+      setConnectionError(null);
+    } catch (err: any) {
+      console.error('Wallet connection error:', err);
+      setStatus('error');
+      const msg = err?.message || 'Failed to connect to browser wallet extension.';
+      setConnectionError(msg);
+      throw err;
     }
   };
 
   const connectDemoWallet = () => {
     const demoAddr = 'mn1_demo_member_0x8f2a931c';
     setWalletAddress(demoAddr);
+    setWalletName('Demo Simulated Wallet');
     setStatus('connected');
     setIsAdmin(true);
+    setConnectionError(null);
   };
 
   const disconnectWallet = () => {
     setWalletAddress(null);
+    setWalletName('Midnight Lace Wallet');
     setStatus('disconnected');
+    setConnectionError(null);
   };
 
   const incrementMemberCount = () => setMemberCount(prev => prev + 1);
@@ -268,12 +408,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WalletContext.Provider value={{
       walletAddress,
+      walletName,
       status,
+      connectionError,
       isAdmin,
       memberCount,
       credentials,
       history,
       allowlist,
+      detectedWallets,
       connectWallet,
       connectDemoWallet,
       disconnectWallet,
