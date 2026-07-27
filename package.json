@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "compile": "compact compile contracts/anonymous-organization-membership.compact contracts/managed/anonymous-organization-membership",
-    "build": "npx tsc --noEmit || true",
+    "build": "cd ui && npm install && npm run build",
     "setup": "npx tsx src/setup.ts",
     "deploy": "npx tsx src/deploy.ts",
     "cli": "npx tsx src/cli.ts",
