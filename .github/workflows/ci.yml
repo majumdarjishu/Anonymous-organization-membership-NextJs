@@ -28,6 +28,9 @@ jobs:
       - name: TypeScript type check (no-emit)
         run: npm run build
 
+      - name: Run unit test suite
+        run: npm test
+
   # ─── Job 2: Build the React UI ───────────────────────────────────────────────
   build-ui:
     name: Build React UI

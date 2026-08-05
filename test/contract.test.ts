@@ -1,0 +1,63 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+
+describe('Compact Smart Contract Verification', () => {
+  const compactFilePath = path.join(rootDir, 'contracts', 'anonymous-organization-membership.compact');
+
+  it('should verify the existence of anonymous-organization-membership.compact source file', () => {
+    assert.equal(fs.existsSync(compactFilePath), true, 'Contract file must exist');
+  });
+
+  it('should parse contract source for required language pragmas and standard library imports', () => {
+    const content = fs.readFileSync(compactFilePath, 'utf-8');
+    assert.match(content, /pragma language_version >= 0\.23;/, 'Contract must declare Compact language version 0.23+');
+    assert.match(content, /import CompactStandardLibrary;/, 'Contract must import CompactStandardLibrary');
+  });
+
+  it('should declare all required ledger state variables', () => {
+    const content = fs.readFileSync(compactFilePath, 'utf-8');
+    assert.match(content, /export ledger admin:\s*Bytes<32>;/, 'Must export ledger admin: Bytes<32>');
+    assert.match(content, /export ledger allowlist:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger allowlist map');
+    assert.match(content, /export ledger members:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger members nullifier map');
+    assert.match(content, /export ledger memberCount:\s*Counter;/, 'Must export ledger memberCount Counter');
+  });
+
+  it('should declare local ZK witness functions for private state execution', () => {
+    const content = fs.readFileSync(compactFilePath, 'utf-8');
+    assert.match(content, /witness secretWitness\(\):\s*Bytes<32>;/, 'Must declare witness secretWitness()');
+    assert.match(content, /witness nullifierWitness\(\):\s*Bytes<32>;/, 'Must declare witness nullifierWitness()');
+  });
+
+  it('should enforce circuit export definitions for addAllowedCommitment and joinOrganization', () => {
+    const content = fs.readFileSync(compactFilePath, 'utf-8');
+    assert.match(content, /export circuit addAllowedCommitment\(commitment:\s*Bytes<32>\):\s*\[\]/, 'Must export circuit addAllowedCommitment');
+    assert.match(content, /export circuit joinOrganization\(\):\s*\[\]/, 'Must export circuit joinOrganization');
+  });
+
+  it('should verify compiled contract output folder structure', () => {
+    const managedDir = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership');
+    assert.equal(fs.existsSync(managedDir), true, 'Managed output directory must exist');
+    assert.equal(fs.existsSync(path.join(managedDir, 'contract')), true, 'Compiled contract folder must exist');
+    assert.equal(fs.existsSync(path.join(managedDir, 'zkir')), true, 'ZKIR folder must exist');
+    assert.equal(fs.existsSync(path.join(managedDir, 'keys')), true, 'Proving keys folder must exist');
+  });
+
+  it('should load compiled JS contract module successfully', async () => {
+    const contractIndexPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership', 'contract', 'index.cjs');
+    if (fs.existsSync(contractIndexPath)) {
+      const contractMod = await import(contractIndexPath);
+      assert.ok(contractMod.Contract, 'Compiled module should export Contract');
+    } else {
+      // Fallback check for index.js
+      const contractJsPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership', 'contract', 'index.js');
+      assert.equal(fs.existsSync(contractJsPath), true, 'Contract index file must exist');
+    }
+  });
+});
