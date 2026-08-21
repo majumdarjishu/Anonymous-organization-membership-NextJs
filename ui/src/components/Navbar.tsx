@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMidnight } from '@/context/MidnightContext';
-import { Activity, Shield, Key, History, Wallet, UserCircle, Building2 } from 'lucide-react';
+import { Activity, Shield, Key, History, Wallet, UserCircle, Building2, Server } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function Navbar() {
@@ -15,6 +15,7 @@ export function Navbar() {
     { name: 'Register', path: '/register', icon: <Key className="w-4 h-4 mr-2" /> },
     { name: 'Verify', path: '/verify', icon: <Shield className="w-4 h-4 mr-2" /> },
     { name: 'Org Admin', path: '/organization', icon: <Building2 className="w-4 h-4 mr-2" /> },
+    { name: 'Deploy', path: '/admin/deploy', icon: <Server className="w-4 h-4 mr-2" /> },
     { name: 'History', path: '/history', icon: <History className="w-4 h-4 mr-2" /> },
   ];
 

@@ -6,6 +6,7 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ['localhost', '127.0.0.1'],
   serverExternalPackages: [
     '@midnight-ntwrk/compact-runtime',
     '@midnight-ntwrk/midnight-js-network-id',
@@ -21,7 +22,6 @@ const nextConfig = {
     'ws'
   ],
   webpack: (config) => {
-    config.resolve.symlinks = false;
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,

@@ -8,7 +8,7 @@ import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-j
 // The compiled contract is loaded dynamically to avoid Next.js bundling issues.
 // The contract output is copied into ui/src/contracts/ so Webpack can resolve it.
 // Original source: contracts/managed/anonymous-membership-organisation/contract/index.js
-export const PRIVATE_STATE_ID = 'helloWorldPrivateState';
+export const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 
 // Since we are running in the browser, the zkConfigPath should be an HTTP URL
 // pointing to where Next.js serves the 'zkir' and 'keys' directories (e.g., inside public/contracts/)
