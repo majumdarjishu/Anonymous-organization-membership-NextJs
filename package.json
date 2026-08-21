@@ -1,12 +1,12 @@
 {
-  "name": "anonymous-organization-membership",
+  "name": "anonymous-membership-organisation",
   "version": "1.0.0",
   "type": "module",
   "description": "A Midnight Network application created with create-mn-app",
   "author": "",
   "license": "MIT",
   "scripts": {
-    "compile": "compact compile contracts/anonymous-organization-membership.compact contracts/managed/anonymous-organization-membership",
+    "compile": "compact compile contracts/anonymous-membership-organisation.compact contracts/managed/anonymous-membership-organisation",
     "build": "node node_modules/typescript/bin/tsc --noEmit",
     "setup": "npx tsx src/setup.ts",
     "deploy": "npx tsx src/deploy.ts",

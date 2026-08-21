@@ -1,5 +1,5 @@
 /**
- * CLI for interacting with anonymous-organization-membership contract
+ * CLI for interacting with anonymous-membership-organisation contract
  */
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -24,14 +24,14 @@ import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-j
 globalThis.WebSocket = WebSocket;
 
 // Must match the privateStateId used at deploy time so the CLI reconnects to
-// the same private state. The hello-world contract has no witnesses (empty state).
+// the same private state.
 const PRIVATE_STATE_ID = 'helloWorldPrivateState';
 
 const { network, config: networkConfig } = resolveNetwork();
 const SEED = getOrCreateSeed(network);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-organization-membership');
+const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-membership-organisation');
 const contractPath = path.join(zkConfigPath, 'contract', 'index.js');
 if (!fs.existsSync(contractPath)) {
   console.error('\n❌ Contract not compiled! Run: npm run compile\n');
@@ -39,7 +39,7 @@ if (!fs.existsSync(contractPath)) {
 }
 const Contract_Module = await import(pathToFileURL(contractPath).href);
 
-const compiledContract = CompiledContract.make('anonymous-organization-membership', Contract_Module.Contract).pipe(
+const compiledContract = CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
   CompiledContract.withVacantWitnesses,
   CompiledContract.withCompiledFileAssets(zkConfigPath),
 );
@@ -47,19 +47,12 @@ const compiledContract = CompiledContract.make('anonymous-organization-membershi
 // ─── Providers ─────────────────────────────────────────────────────────────────
 
 async function createProviders(walletCtx: WalletContext) {
-  // The SDK requires the private-state password to be at least 16 characters.
-  // The default below is a placeholder for local devnet only — set a strong
-  // password via PRIVATE_STATE_PASSWORD when you move to a non-local target.
   const privateStatePassword = process.env.PRIVATE_STATE_PASSWORD?.trim() || 'Local-Devnet-Development-Placeholder-1';
 
   const walletProvider = {
-    // In Midnight.js 4.1.x the WalletProvider interface returns the key objects
-    // (CoinPublicKey / EncPublicKey) directly — no longer hex strings.
     getCoinPublicKey: () => walletCtx.shieldedSecretKeys.coinPublicKey,
     getEncryptionPublicKey: () => walletCtx.shieldedSecretKeys.encryptionPublicKey,
     async balanceTx(tx: any, ttl?: Date) {
-      // balanceUnboundTransaction -> finalizeRecipe is the complete balancing
-      // path in wallet-sdk 1.x; the earlier explicit signRecipe step is gone.
       const recipe = await walletCtx.wallet.balanceUnboundTransaction(
         tx,
         { shieldedSecretKeys: walletCtx.shieldedSecretKeys, dustSecretKey: walletCtx.dustSecretKey },
@@ -75,7 +68,7 @@ async function createProviders(walletCtx: WalletContext) {
 
   return {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'anonymous-organization-membership-state',
+      privateStateStoreName: 'anonymous-membership-organisation-state',
       accountId,
       privateStoragePasswordProvider: () => privateStatePassword,
     }),
@@ -91,12 +84,11 @@ async function createProviders(walletCtx: WalletContext) {
 
 async function main() {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                   anonymous-organization-membership CLI                           ║');
+  console.log('║           Anonymous Organization Membership CLI              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const rl = createInterface({ input: stdin, output: stdout });
 
-  // Check for deployment
   const deployment = getDeployment(network);
   if (!deployment) {
     console.error(`No deploy on file for network ${network}. Run \`npm run setup -- --network ${network}\` first.`);
@@ -107,7 +99,6 @@ async function main() {
 
   try {
     const seed = SEED;
-
     console.log('  Connecting to wallet...');
     const walletCtx = await createWallet({ network, networkConfig, seed });
     const restoredCount = Object.values(walletCtx.restored).filter(Boolean).length;
@@ -127,15 +118,10 @@ async function main() {
     clearInterval(syncInterval);
     process.stdout.write('\r  ✓ Synced with network.                                      \n');
 
-    // Persist sync state so the next run doesn't have to redo this work.
     await persistWalletState(network, walletCtx);
     const balance = state.unshielded.balances[unshieldedToken().raw] ?? 0n;
     console.log(`  Balance: ${balance.toLocaleString()} tNight\n`);
 
-    // Surface a faucet hint when a public-network wallet has 0 tNIGHT.
-    // Reads (option 2) work without funds, but writes (option 1) need DUST
-    // generated from registered NIGHT — without this hint the next failure
-    // mode is a confusing "Insufficient Funds" deep inside the tx builder.
     if (balance === 0n && network !== 'undeployed' && networkConfig.faucet) {
       const address = walletCtx.unshieldedKeystore.getBech32Address();
       console.log('  ⚠ Wallet has no tNight. Fund it from the faucet to send transactions:');
@@ -143,7 +129,6 @@ async function main() {
       console.log(`     Wallet address: ${address}\n`);
     }
 
-    // Setup providers and connect to contract
     console.log('  Connecting to contract...');
     const providers = await createProviders(walletCtx);
 
@@ -156,12 +141,11 @@ async function main() {
 
     console.log('  ✅ Connected!\n');
 
-    // Interactive CLI loop
     let running = true;
     while (running) {
       console.log('─── Menu ───────────────────────────────────────────────────────');
-      console.log('  1. Add commitment to allowlist (Admin)');
-      console.log('  2. Join organization (Member)');
+      console.log('  1. Register Membership (Admin)');
+      console.log('  2. Revoke Membership (Admin)');
       console.log('  3. Read public ledger state');
       console.log('  4. Check wallet balance');
       console.log('  5. Exit\n');
@@ -178,8 +162,8 @@ async function main() {
           const commitment = new Uint8Array(Buffer.from(commitmentHex, 'hex'));
           console.log('\n  Submitting transaction (this may take 30-60 seconds)...');
           try {
-            const tx = await deployed.callTx.addAllowedCommitment(commitment);
-            console.log(`\n  ✅ Commitment added.`);
+            const tx = await deployed.callTx.registerMembership(commitment);
+            console.log(`\n  ✅ Membership commitment registered.`);
             console.log(`  Transaction ID: ${tx.public.txId}`);
           } catch (error) {
             console.error('\n  ❌ Failed:', error instanceof Error ? error.message : error);
@@ -188,7 +172,20 @@ async function main() {
         }
 
         case '2': {
-          console.log('  (Joining is best done through the web UI with private inputs. This is a stub.)');
+          const commitmentHex = await rl.question('  Enter 32-byte commitment (hex without 0x): ');
+          if (commitmentHex.length !== 64) {
+            console.log('  ❌ Commitment must be 64 hex characters (32 bytes).');
+            break;
+          }
+          const commitment = new Uint8Array(Buffer.from(commitmentHex, 'hex'));
+          console.log('\n  Submitting transaction (this may take 30-60 seconds)...');
+          try {
+            const tx = await deployed.callTx.revokeMembership(commitment);
+            console.log(`\n  ✅ Membership commitment revoked.`);
+            console.log(`  Transaction ID: ${tx.public.txId}`);
+          } catch (error) {
+            console.error('\n  ❌ Failed:', error instanceof Error ? error.message : error);
+          }
           break;
         }
 
@@ -198,7 +195,7 @@ async function main() {
             const contractState = await providers.publicDataProvider.queryContractState(deployment.address);
             if (contractState) {
               const ledgerState = Contract_Module.ledger(contractState.data);
-              console.log(`\n  📋 Total members joined: ${ledgerState.memberCount.toString()}\n`);
+              console.log(`\n  📋 Total verifications: ${ledgerState.verificationCount.toString()}\n`);
             } else {
               console.log('\n  📋 No state found\n');
             }

@@ -9,9 +9,9 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 describe('Compact Smart Contract Verification', () => {
-  const compactFilePath = path.join(rootDir, 'contracts', 'anonymous-organization-membership.compact');
+  const compactFilePath = path.join(rootDir, 'contracts', 'anonymous-membership-organisation.compact');
 
-  it('should verify the existence of anonymous-organization-membership.compact source file', () => {
+  it('should verify the existence of anonymous-membership-organisation.compact source file', () => {
     assert.equal(fs.existsSync(compactFilePath), true, 'Contract file must exist');
   });
 
@@ -24,39 +24,38 @@ describe('Compact Smart Contract Verification', () => {
   it('should declare all required ledger state variables', () => {
     const content = fs.readFileSync(compactFilePath, 'utf-8');
     assert.match(content, /export ledger admin:\s*Bytes<32>;/, 'Must export ledger admin: Bytes<32>');
-    assert.match(content, /export ledger allowlist:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger allowlist map');
-    assert.match(content, /export ledger members:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger members nullifier map');
-    assert.match(content, /export ledger memberCount:\s*Counter;/, 'Must export ledger memberCount Counter');
+    assert.match(content, /export ledger memberCommitments:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger memberCommitments map');
+    assert.match(content, /export ledger verifiedMembers:\s*Map<Bytes<32>,\s*Boolean>;/, 'Must export ledger verifiedMembers map');
+    assert.match(content, /export ledger verificationCount:\s*Counter;/, 'Must export ledger verificationCount Counter');
   });
 
   it('should declare local ZK witness functions for private state execution', () => {
     const content = fs.readFileSync(compactFilePath, 'utf-8');
-    assert.match(content, /witness secretWitness\(\):\s*Bytes<32>;/, 'Must declare witness secretWitness()');
-    assert.match(content, /witness nullifierWitness\(\):\s*Bytes<32>;/, 'Must declare witness nullifierWitness()');
+    assert.match(content, /witness credential\(\):\s*MembershipCredential;/, 'Must declare witness credential()');
   });
 
-  it('should enforce circuit export definitions for addAllowedCommitment and joinOrganization', () => {
+  it('should enforce circuit export definitions', () => {
     const content = fs.readFileSync(compactFilePath, 'utf-8');
-    assert.match(content, /export circuit addAllowedCommitment\(commitment:\s*Bytes<32>\):\s*\[\]/, 'Must export circuit addAllowedCommitment');
-    assert.match(content, /export circuit joinOrganization\(\):\s*\[\]/, 'Must export circuit joinOrganization');
+    assert.match(content, /export circuit registerMembership\(commitment:\s*Bytes<32>\):\s*\[\]/, 'Must export circuit registerMembership');
+    assert.match(content, /export circuit revokeMembership\(commitment:\s*Bytes<32>\):\s*\[\]/, 'Must export circuit revokeMembership');
+    assert.match(content, /export circuit verifyMembership\(\):\s*\[\]/, 'Must export circuit verifyMembership');
   });
 
-  it('should verify compiled contract output folder structure', { skip: !fs.existsSync(path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership')) ? 'contracts/managed/ not present — run `npm run compile` with the Compact toolchain first' : false }, () => {
-    const managedDir = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership');
+  it('should verify compiled contract output folder structure', { skip: !fs.existsSync(path.join(rootDir, 'contracts', 'managed', 'anonymous-membership-organisation')) ? 'contracts/managed/ not present — run `npm run compile` with the Compact toolchain first' : false }, () => {
+    const managedDir = path.join(rootDir, 'contracts', 'managed', 'anonymous-membership-organisation');
     assert.equal(fs.existsSync(managedDir), true, 'Managed output directory must exist');
     assert.equal(fs.existsSync(path.join(managedDir, 'contract')), true, 'Compiled contract folder must exist');
     assert.equal(fs.existsSync(path.join(managedDir, 'zkir')), true, 'ZKIR folder must exist');
     assert.equal(fs.existsSync(path.join(managedDir, 'keys')), true, 'Proving keys folder must exist');
   });
 
-  it('should load compiled JS contract module successfully', { skip: !fs.existsSync(path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership')) ? 'contracts/managed/ not present — run `npm run compile` with the Compact toolchain first' : false }, async () => {
-    const contractIndexPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership', 'contract', 'index.cjs');
+  it('should load compiled JS contract module successfully', { skip: !fs.existsSync(path.join(rootDir, 'contracts', 'managed', 'anonymous-membership-organisation')) ? 'contracts/managed/ not present — run `npm run compile` with the Compact toolchain first' : false }, async () => {
+    const contractIndexPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-membership-organisation', 'contract', 'index.cjs');
     if (fs.existsSync(contractIndexPath)) {
       const contractMod = await import(contractIndexPath);
       assert.ok(contractMod.Contract, 'Compiled module should export Contract');
     } else {
-      // Fallback check for index.js
-      const contractJsPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-organization-membership', 'contract', 'index.js');
+      const contractJsPath = path.join(rootDir, 'contracts', 'managed', 'anonymous-membership-organisation', 'contract', 'index.js');
       assert.equal(fs.existsSync(contractJsPath), true, 'Contract index file must exist');
     }
   });

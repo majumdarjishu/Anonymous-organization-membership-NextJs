@@ -1,5 +1,5 @@
 /**
- * Deploy anonymous-organization-membership contract to a Midnight network (undeployed by default; use --network preview|preprod for public networks).
+ * Deploy anonymous-membership-organisation contract to a Midnight network (undeployed by default; use --network preview|preprod for public networks).
  *
  * Non-interactive: scaffold → npm run setup runs straight through.
  * No readline prompts, no .midnight-seed file.
@@ -66,7 +66,7 @@ async function waitForProofServer(maxAttempts = 60, delayMs = 2000): Promise<boo
 // ─── Compiled contract loading ─────────────────────────────────────────────────
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-organization-membership');
+const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-membership-organisation');
 const contractPath = path.join(zkConfigPath, 'contract', 'index.js');
 
 if (!fs.existsSync(contractPath)) {
@@ -76,7 +76,7 @@ if (!fs.existsSync(contractPath)) {
 
 const Contract_Module = await import(pathToFileURL(contractPath).href);
 
-const compiledContract = CompiledContract.make('anonymous-organization-membership', Contract_Module.Contract).pipe(
+const compiledContract = CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
   CompiledContract.withVacantWitnesses,
   CompiledContract.withCompiledFileAssets(zkConfigPath),
 );
@@ -112,7 +112,7 @@ async function createProviders(walletCtx: WalletContext) {
 
   return {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'anonymous-organization-membership-state',
+      privateStateStoreName: 'anonymous-membership-organisation-state',
       accountId,
       privateStoragePasswordProvider: () => privateStatePassword,
     }),
@@ -128,7 +128,7 @@ async function createProviders(walletCtx: WalletContext) {
 
 async function main() {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log(`║  Deploy anonymous-organization-membership to ${network}`);
+  console.log(`║  Deploy anonymous-membership-organisation to ${network}`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const seed = SEED;

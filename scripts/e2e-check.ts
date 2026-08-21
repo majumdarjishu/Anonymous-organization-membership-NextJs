@@ -1,5 +1,5 @@
 /**
- * End-to-end smoke check for anonymous-organization-membership.
+ * End-to-end smoke check for anonymous-membership-organisation.
  *
  * Reconnects to the deployed contract, reads its ledger state, and exits 0
  * on success. Used by `npm run test:e2e` and by the project's CI workflows.
@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocket } from 'ws';
-import { Contract } from '../contracts/managed/anonymous-organization-membership/contract/index.cjs';
+import { Contract } from '../contracts/managed/anonymous-membership-organisation/contract/index.cjs';
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
@@ -51,11 +51,11 @@ async function main() {
 
   // 2. Build wallet and providers
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-organization-membership');
+  const zkConfigPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'anonymous-membership-organisation');
   const contractPath = path.join(zkConfigPath, 'contract', 'index.js');
   if (!fs.existsSync(contractPath)) fail('Compiled contract missing — run `npm run compile`.');
   const Contract_Module = await import(pathToFileURL(contractPath).href);
-  const compiledContract = CompiledContract.make('anonymous-organization-membership', Contract_Module.Contract).pipe(
+  const compiledContract = CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
     CompiledContract.withVacantWitnesses,
     CompiledContract.withCompiledFileAssets(zkConfigPath),
   );
@@ -81,7 +81,7 @@ async function main() {
 
   const providers = {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'anonymous-organization-membership-state',
+      privateStateStoreName: 'anonymous-membership-organisation-state',
       accountId: walletCtx.unshieldedKeystore.getBech32Address().toString(),
       // SDK requires ≥16 chars. e2e-check is read-only so we don't expose
       // the env-var override here — match the deploy script's local-devnet default.

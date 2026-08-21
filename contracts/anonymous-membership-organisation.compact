@@ -1,0 +1,46 @@
+pragma language_version >= 0.23;
+
+import CompactStandardLibrary;
+
+export ledger admin: Bytes<32>;
+export ledger memberCommitments: Map<Bytes<32>, Boolean>; // true if active, false if revoked
+export ledger verifiedMembers: Map<Bytes<32>, Boolean>; // stores nullifiers to prevent double verification
+export ledger verificationCount: Counter;
+
+constructor(adminKey: Bytes<32>) {
+    admin = disclose(adminKey);
+}
+
+struct MembershipCredential {
+    secret: Bytes<32>,
+    membershipId: Uint<32>
+}
+
+// Witness provided by the member
+witness credential(): MembershipCredential;
+
+// Admin registers a member's commitment
+export circuit registerMembership(commitment: Bytes<32>): [] {
+    assert(admin == disclose(ownPublicKey()).bytes, "Only admin can register members");
+    memberCommitments.insert(disclose(commitment), true);
+}
+
+// Admin revokes a member's commitment
+export circuit revokeMembership(commitment: Bytes<32>): [] {
+    assert(admin == disclose(ownPublicKey()).bytes, "Only admin can revoke members");
+    memberCommitments.insert(disclose(commitment), false);
+}
+
+// Any user can anonymously verify their membership using their private credential
+export circuit verifyMembership(): [] {
+    // Member must be registered
+    assert(memberCommitments.member(disclose(persistentHash<MembershipCredential>(credential()))), "Membership commitment not found");
+    
+    // Create a unique nullifier derived from the secret alone to avoid correlating with the commitment hash
+    // Ensure this nullifier hasn't already verified
+    assert(!verifiedMembers.member(disclose(persistentHash<Bytes<32>>(credential().secret))), "Membership already verified");
+    
+    // Record verification and increment counter
+    verifiedMembers.insert(disclose(persistentHash<Bytes<32>>(credential().secret)), true);
+    verificationCount.increment(1);
+}
