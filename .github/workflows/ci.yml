@@ -23,7 +23,7 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: TypeScript type check (no-emit)
         run: npm run build
@@ -118,7 +118,7 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Audit root dependencies (high severity only)
         run: npm audit --audit-level=critical || true
