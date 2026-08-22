@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 export interface NetworkConfig {
   name: string;
@@ -34,6 +34,8 @@ const NETWORKS: Record<string, NetworkConfig> = {
   },
 };
 
+const CONTRACT_ADDRESS_STORAGE_KEY = 'midnight_contract_address';
+
 export type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface MidnightContextType {
@@ -48,6 +50,7 @@ interface MidnightContextType {
   deployContractAction: () => Promise<string>;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
+  setContractAddressManually: (address: string) => void;
 }
 
 const MidnightContext = createContext<MidnightContextType | undefined>(undefined);
@@ -105,9 +108,29 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [walletApi, setWalletApi] = useState<any | null>(null);
 
+  // contractAddress: env var takes priority, then localStorage, then null
+  const [contractAddress, setContractAddress] = useState<string | null>(
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || null
+  );
+
+  // Hydrate from localStorage on mount (client-only)
+  useEffect(() => {
+    if (!contractAddress) {
+      const saved = localStorage.getItem(CONTRACT_ADDRESS_STORAGE_KEY);
+      if (saved) setContractAddress(saved);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setContractAddressManually = useCallback((address: string) => {
+    const trimmed = address.trim();
+    if (trimmed) {
+      localStorage.setItem(CONTRACT_ADDRESS_STORAGE_KEY, trimmed);
+      setContractAddress(trimmed);
+    }
+  }, []);
+
   const envNetwork = process.env.NEXT_PUBLIC_MIDNIGHT_NETWORK || 'preprod';
   const network = NETWORKS[envNetwork] || NETWORKS.preprod;
-  const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || null;
 
   const connectWallet = useCallback(async () => {
     setStatus('connecting');
@@ -186,7 +209,13 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
       args: [providers.walletProvider.coinPublicKey],
     });
     
-    return deployed.deployTxData.public.contractAddress;
+    const address = deployed.deployTxData.public.contractAddress;
+
+    // Persist across sessions
+    localStorage.setItem(CONTRACT_ADDRESS_STORAGE_KEY, address);
+    setContractAddress(address);
+
+    return address;
   }, [walletApi, network]);
 
   const disconnectWallet = useCallback(() => {
@@ -211,6 +240,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
       deployContractAction,
       connectWallet,
       disconnectWallet,
+      setContractAddressManually,
     }}>
       {children}
     </MidnightContext.Provider>

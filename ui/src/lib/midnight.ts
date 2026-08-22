@@ -22,25 +22,62 @@ export const getCompiledContract = async (zkConfigPathUrl: string) => {
   );
 };
 
+/**
+ * Resolve the shielded address string from the wallet API.
+ * Tries multiple sources in order:
+ *   1. walletApi.getShieldedAddresses()  — preferred, may return string[] or object[]
+ *   2. walletApi.state().address         — fallback for wallets that embed it in state
+ */
+async function resolveShieldedAddress(walletApi: any): Promise<string> {
+  // ── Attempt 1: getShieldedAddresses() ──────────────────────────────────────
+  try {
+    const addrs = await walletApi.getShieldedAddresses();
+    if (Array.isArray(addrs) && addrs.length > 0) {
+      const first = addrs[0];
+      // Addresses may be plain strings or objects like { address: "mn1..." }
+      if (typeof first === 'string' && first.length > 0) return first;
+      if (first && typeof first === 'object') {
+        const candidate = first.address ?? first.bech32 ?? first.value ?? first.shieldedAddress;
+        if (typeof candidate === 'string' && candidate.length > 0) return candidate;
+      }
+    }
+  } catch (e) {
+    console.warn('[midnight] getShieldedAddresses() failed:', e);
+  }
+
+  // ── Attempt 2: wallet state address ────────────────────────────────────────
+  try {
+    const state = await walletApi.state();
+    const stateAddr = state?.address;
+    // Midnight shielded addresses start with "mn" (bech32m prefix)
+    if (typeof stateAddr === 'string' && stateAddr.startsWith('mn')) {
+      console.warn('[midnight] Using state().address as shielded address fallback.');
+      return stateAddr;
+    }
+  } catch (e) {
+    console.warn('[midnight] state() fallback failed:', e);
+  }
+
+  // ── All attempts exhausted ─────────────────────────────────────────────────
+  throw new Error(
+    'No shielded addresses found in your wallet.\n\n' +
+    'To fix this, open your Lace / 1AM wallet extension and:\n' +
+    '  1. Switch to the Midnight Preprod network\n' +
+    '  2. Create / enable a Shielded account (not just the transparent/unshielded one)\n' +
+    '  3. Wait for the wallet to sync, then try again'
+  );
+}
+
 export const createMidnightProviders = async (
   walletApi: any,
   networkConfig: { indexer: string; indexerWS: string; proofServer: string; zkConfigPathUrl: string }
 ) => {
   if (typeof window === 'undefined') throw new Error('Cannot create providers on server');
 
-  const shieldedAddresses = await walletApi.getShieldedAddresses();
-  if (!shieldedAddresses || !shieldedAddresses[0]) {
-    throw new Error('No shielded addresses available from wallet');
-  }
+  const addressString = await resolveShieldedAddress(walletApi);
 
   const networkInfo = await walletApi.getConfiguration();
   const networkId = networkInfo.networkId;
-
-  const addressString = shieldedAddresses[0];
-
-  if (typeof addressString !== 'string') {
-    throw new Error(`Expected address to be a string, but got ${typeof addressString}: ${JSON.stringify(addressString)}`);
-  }
 
   const parsedAddress = MidnightBech32m.parse(addressString).decode(ShieldedAddress, networkId);
   const coinPublicKey = parsedAddress.coinPublicKey.data;
