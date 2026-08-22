@@ -23,9 +23,8 @@ import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-j
 // @ts-expect-error Required for wallet sync
 globalThis.WebSocket = WebSocket;
 
-// Identifier under which this contract's private state is stored. The
-// hello-world contract has no witnesses, so its private state is empty ({}).
-const PRIVATE_STATE_ID = 'helloWorldPrivateState';
+// Identifier under which this contract's private state is stored.
+const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 
 // ─── Network configuration ─────────────────────────────────────────────────────
 //
@@ -85,9 +84,9 @@ const compiledContract = CompiledContract.make('anonymous-membership-organisatio
 
 async function createProviders(walletCtx: WalletContext) {
   // The SDK requires the private-state password to be at least 16 characters.
-  // The default below is a placeholder for local devnet only — set a strong
-  // password via PRIVATE_STATE_PASSWORD when you move to a non-local target.
-  const privateStatePassword = process.env.PRIVATE_STATE_PASSWORD?.trim() || 'Local-Devnet-Development-Placeholder-1';
+  // The default below is for local devnet only — set a strong
+  // password via environment variables for preprod or mainnet.
+  const privateStatePassword = process.env.PRIVATE_STATE_PASSWORD?.trim() || 'local-development-password';
 
   const walletProvider = {
     // In Midnight.js 4.1.x the WalletProvider interface returns the key objects

@@ -1,77 +1,183 @@
 "use client";
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Shield, Lock, EyeOff, ArrowRight, UserCheck } from 'lucide-react';
 import { useMidnight } from '@/context/MidnightContext';
+import { Lock, EyeOff, CheckCircle, ArrowRight, Zap, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
-export default function LandingPage() {
-  const { status, connectWallet, walletName } = useMidnight();
+export default function HomePage() {
+  const { status, connectWallet, connectionError } = useMidnight();
+  const [mounted, setMounted] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    await connectWallet();
+    setConnecting(false);
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh]">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="text-center max-w-3xl mx-auto space-y-8"
-      >
-        <motion.div
-          animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className="mx-auto w-24 h-24 bg-gradient-to-tr from-primary-600 to-primary-400 rounded-3xl p-5 shadow-lg flex items-center justify-center mb-8"
-        >
-          <UserCheck className="w-full h-full text-white" />
-        </motion.div>
+    <div className="page-container" style={{ paddingTop: 80, paddingBottom: 80 }}>
 
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight text-slate-900">
-          Prove Membership. <br />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-primary-400">Keep Your Identity Private.</span>
+      {/* Hero */}
+      <div style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 80px' }}>
+        <div className="badge badge-purple" style={{ marginBottom: 24, display: 'inline-flex' }}>
+          <Zap size={12} />
+          Built on Midnight Network · Zero-Knowledge Privacy
+        </div>
+        <h1 style={{
+          fontSize: 'clamp(40px, 6vw, 72px)',
+          fontWeight: 900, lineHeight: 1.1,
+          marginBottom: 24, letterSpacing: '-0.02em',
+          color: 'var(--text-primary)',
+        }}>
+          Private Membership.{' '}
+          <span className="text-gradient">Public Trust.</span>
         </h1>
-
-        <p className="text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed">
-          Anonymous Organization Membership powered by Midnight Zero-Knowledge proofs lets members verify eligibility without revealing their identity or credentials.
+        <p style={{ fontSize: 18, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 40 }}>
+          Join an organisation and prove your membership without revealing your identity.
+          Powered by Midnight Network's zero-knowledge proof technology.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-          {status === 'connected' ? (
-            <Link href="/dashboard" className="btn-primary px-8 py-4 text-lg w-full sm:w-auto flex items-center justify-center group">
-              Go to Dashboard
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {mounted && status === 'connected' ? (
+            <Link href="/dashboard" className="btn btn-primary btn-lg">
+              Open Dashboard <ArrowRight size={18} />
             </Link>
           ) : (
-            <button onClick={connectWallet} className="btn-primary px-8 py-4 text-lg w-full sm:w-auto flex items-center justify-center group">
-              Connect Wallet
-              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <button
+              className="btn btn-primary btn-lg"
+              onClick={handleConnect}
+              disabled={connecting || status === 'connecting'}
+            >
+              {(connecting || status === 'connecting') ? (
+                <><span className="spinner" /> Connecting…</>
+              ) : (
+                <><Shield size={18} /> Connect Wallet</>
+              )}
             </button>
           )}
-          <Link href="/verify" className="btn-secondary px-8 py-4 text-lg w-full sm:w-auto text-center">
-            Verify Membership
+          <Link href="/membership" className="btn btn-outline btn-lg">
+            Explore Membership
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16">
+        {status === 'error' && connectionError && (
+          <div style={{
+            marginTop: 16, padding: '12px 16px',
+            background: 'var(--red-dim)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 10, fontSize: 13, color: 'var(--red)', textAlign: 'left',
+          }}>
+            {connectionError}
+          </div>
+        )}
+      </div>
+
+      {/* Feature cards */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 20, marginBottom: 80,
+      }}>
+        {[
+          {
+            icon: <Lock size={22} />,
+            color: '#7c5cfc',
+            title: 'Private Identity',
+            desc: 'Your sensitive membership information — name, ID, credentials — stays entirely private and never leaves your device.',
+          },
+          {
+            icon: <EyeOff size={22} />,
+            color: '#60a5fa',
+            title: 'Zero-Knowledge Proof',
+            desc: 'Cryptographically prove what matters without revealing unnecessary information. Privacy by design, not as an afterthought.',
+          },
+          {
+            icon: <CheckCircle size={22} />,
+            color: '#22c55e',
+            title: 'Public Verification',
+            desc: 'The organisation can verify valid membership on-chain without ever seeing your private details. Trust without exposure.',
+          },
+        ].map((f, i) => (
+          <div key={i} className="card" style={{ padding: 28 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: `${f.color}22`,
+              border: `1px solid ${f.color}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: f.color, marginBottom: 20,
+            }}>
+              {f.icon}
+            </div>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 10, color: 'var(--text-primary)' }}>
+              {f.title}
+            </h3>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {f.desc}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* How it works */}
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
+        <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>How it works</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 40 }}>
+          Four simple steps from wallet to verified member.
+        </p>
+        <div className="step-flow" style={{ textAlign: 'left' }}>
           {[
-            { icon: <Lock />, title: 'Private Credentials', desc: 'Your membership secrets never leave your local device.' },
-            { icon: <EyeOff />, title: 'Anonymous Verification', desc: 'Prove you are a member without exposing your name or ID.' },
-            { icon: <Shield />, title: 'Zero-Knowledge Proofs', desc: 'Leverage Midnight Network to verify eligibility securely.' },
-          ].map((feature, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + i * 0.1 }}
-              className="glass-panel p-6 text-left group hover:-translate-y-1 transition-all duration-300"
-            >
-              <div className="bg-primary-50 w-12 h-12 rounded-xl flex items-center justify-center text-primary-600 mb-4 group-hover:scale-110 transition-transform">
-                {feature.icon}
+            { n: 1, label: 'Connect Wallet', desc: 'Connect your Lace or 1AM wallet to identify yourself to the application.' },
+            { n: 2, label: 'Become a Member', desc: 'Submit your membership commitment to the Midnight smart contract.' },
+            { n: 3, label: 'Generate Proof', desc: 'Your device generates a zero-knowledge proof of valid membership.' },
+            { n: 4, label: 'Verify Privately', desc: 'Present your proof on-chain. Verified without revealing your identity.' },
+          ].map((step, i) => (
+            <div key={i} className="step-item">
+              <div className="step-connector">
+                <div className="step-dot" style={{
+                  background: 'var(--accent-dim)',
+                  border: '1px solid var(--accent)',
+                  color: '#a78bfa',
+                }}>
+                  {step.n}
+                </div>
+                {i < 3 && <div className="step-line" />}
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{feature.desc}</p>
-            </motion.div>
+              <div style={{ paddingTop: 4, paddingBottom: i < 3 ? 0 : 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, color: 'var(--text-primary)' }}>
+                  {step.label}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: i < 3 ? 16 : 0 }}>
+                  {step.desc}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        marginTop: 80, paddingTop: 32,
+        borderTop: '1px solid var(--border)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexWrap: 'wrap', gap: 16,
+      }}>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          Anonymous Membership Organisation · Built on Midnight Network
+        </div>
+        <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+          <a
+            href="https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs"
+            target="_blank" rel="noreferrer"
+            style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+          >
+            GitHub
+          </a>
+          <span style={{ color: 'var(--text-muted)' }}>Midnight Preprod</span>
+        </div>
+      </div>
     </div>
   );
 }

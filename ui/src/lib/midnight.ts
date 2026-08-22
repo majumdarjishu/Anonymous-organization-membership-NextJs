@@ -13,12 +13,15 @@ export const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 // Since we are running in the browser, the zkConfigPath should be an HTTP URL
 // pointing to where Next.js serves the 'zkir' and 'keys' directories (e.g., inside public/contracts/)
 export const getCompiledContract = async (zkConfigPathUrl: string) => {
-  const Contract_Module = await import('../contracts/index.js');
+  const Contract_Module = await import('../contracts/index');
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
     CompiledContract.withVacantWitnesses,
     CompiledContract.withCompiledFileAssets(zkConfigPathUrl),
   );
 };
+
+import { toHex, fromHex, parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
+import { Transaction } from '@midnight-ntwrk/midnight-js-types';
 
 export const createMidnightProviders = async (
   walletApi: any,
@@ -26,17 +29,31 @@ export const createMidnightProviders = async (
 ) => {
   if (typeof window === 'undefined') throw new Error('Cannot create providers on server');
 
-  const walletState = await walletApi.state();
+  const shieldedAddresses = await walletApi.getShieldedAddresses();
+  if (!shieldedAddresses || shieldedAddresses.length === 0) {
+    throw new Error('No shielded addresses available from wallet');
+  }
+
+  const networkInfo = await walletApi.getConfiguration();
+  const networkId = networkInfo.networkId;
+
+  const addressString = shieldedAddresses[0];
+
+  const coinPublicKey = fromHex(parseCoinPublicKeyToHex(addressString, networkId));
+  const encryptionPublicKey = fromHex(parseEncPublicKeyToHex(addressString, networkId));
 
   const walletProvider = {
-    getCoinPublicKey: () => walletState.coinPublicKey,
-    getEncryptionPublicKey: () => walletState.encryptionPublicKey,
+    getCoinPublicKey: () => coinPublicKey,
+    getEncryptionPublicKey: () => encryptionPublicKey,
     balanceTx: async (tx: any, ttl?: Date) => {
-      const recipe = await walletApi.balanceTransaction(tx, ttl);
-      return recipe;
+      const txHex = toHex(tx.serialize());
+      const recipe = await walletApi.balanceUnsealedTransaction(txHex);
+      return Transaction.deserialize(fromHex(recipe.tx));
     },
     submitTx: async (tx: any) => {
-      return walletApi.submitTransaction(tx);
+      const txHex = toHex(tx.serialize());
+      await walletApi.submitTransaction(txHex);
+      return tx.transactionHash; // Transaction hash
     },
   };
 
@@ -44,20 +61,11 @@ export const createMidnightProviders = async (
     networkConfig.zkConfigPathUrl,
     fetch.bind(window)
   );
-  
-  // Try to get address for private state storage
-  let accountId = 'unknown';
-  try {
-     const state = await walletApi.state();
-     accountId = state.address || 'unknown';
-  } catch (e) {
-     console.error("Failed to get wallet state", e);
-  }
 
   return {
     privateStateProvider: levelPrivateStateProvider({
       privateStateStoreName: 'anonymous-membership-organisation-state',
-      accountId,
+      accountId: addressString,
       privateStoragePasswordProvider: () => 'local-development-password-1',
     }),
     publicDataProvider: indexerPublicDataProvider(networkConfig.indexer, networkConfig.indexerWS),

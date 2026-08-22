@@ -1,92 +1,225 @@
 "use client";
 
 import { useMidnight } from '@/context/MidnightContext';
-import { motion } from 'framer-motion';
-import { Activity, Shield, Key, History, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Wallet, Shield, Activity, Key, ArrowRight, Server, Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { status, contractAddress, walletName, network } = useMidnight();
+  const { status, walletAddress, walletName, coinPublicKey, network, contractAddress, connectWallet, connectionError, deployContractAction } = useMidnight();
+  const [connecting, setConnecting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [deployStatus, setDeployStatus] = useState<'idle' | 'waiting' | 'submitted' | 'done' | 'error'>('idle');
+  const [deployedAddress, setDeployedAddress] = useState<string | null>(contractAddress);
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
+  const handleConnect = async () => {
+    setConnecting(true);
+    await connectWallet();
+    setConnecting(false);
+  };
+
+  const handleDeploy = async () => {
+    setDeployError(null);
+    setDeployStatus('waiting');
+    setDeploying(true);
+    try {
+      const addr = await deployContractAction();
+      setDeployStatus('done');
+      setDeployedAddress(addr);
+    } catch (e: any) {
+      console.error(e);
+      setDeployError(e?.message || 'Deployment failed. Check wallet and balance.');
+      setDeployStatus('error');
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   if (!mounted) return null;
+
+  const shortAddr = walletAddress
+    ? `${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}`
+    : '—';
 
   if (status !== 'connected') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="glass-panel p-10 max-w-md w-full text-center">
-          <Shield className="w-16 h-16 text-primary-300 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Wallet Required</h2>
-          <p className="text-slate-500 mb-8">Please connect your wallet to access your anonymous membership dashboard.</p>
+      <div className="page-container" style={{ paddingTop: 80, paddingBottom: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="card" style={{ padding: 48, textAlign: 'center', maxWidth: 480, width: '100%' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'var(--accent-dim)', border: '1px solid rgba(124,92,252,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
+          }}>
+            <Wallet size={28} color="var(--accent)" />
+          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>Dashboard</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 28, fontSize: 15 }}>
+            Connect your wallet to access your membership control panel.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={handleConnect}
+            disabled={connecting || status === 'connecting'}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            {connecting || status === 'connecting' ? <><span className="spinner" /> Connecting…</> : 'Connect Wallet'}
+          </button>
+          {status === 'error' && connectionError && (
+            <div style={{ marginTop: 12, fontSize: 13, color: 'var(--red)', padding: '8px 12px', background: 'var(--red-dim)', borderRadius: 8 }}>
+              {connectionError}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Member Dashboard</h1>
-        <p className="text-slate-500 mt-2">Manage your anonymous identity and verifications.</p>
+    <div className="page-container" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 32 }}>
+        <div>
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Dashboard</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Your membership control panel.</p>
+        </div>
+        <span className="badge badge-green" style={{ marginTop: 8 }}>
+          <span className="dot-pulse dot-green" />Session Active
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div whileHover={{ y: -2 }} className="glass-panel p-6 border-l-4 border-l-primary-500">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-500">Wallet Status</h3>
-            <Activity className="w-5 h-5 text-primary-500" />
+      {/* Stat cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 16, marginBottom: 32,
+      }}>
+        {/* Wallet card */}
+        <div className="card" style={{ padding: 20, borderLeft: '3px solid var(--accent)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Wallet</div>
+            <Wallet size={16} color="var(--accent)" />
           </div>
-          <p className="text-2xl font-bold text-slate-900">Connected</p>
-          <p className="text-xs text-slate-400 mt-1">{walletName}</p>
-        </motion.div>
-        
-        <motion.div whileHover={{ y: -2 }} className="glass-panel p-6 border-l-4 border-l-indigo-500">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-500">Network</h3>
-            <Shield className="w-5 h-5 text-indigo-500" />
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all', marginBottom: 4 }}>
+            {shortAddr}
           </div>
-          <p className="text-2xl font-bold text-slate-900">{network.name}</p>
-          <p className="text-xs text-slate-400 mt-1">Proof Server Online</p>
-        </motion.div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{walletName}</div>
+        </div>
 
-        <motion.div whileHover={{ y: -2 }} className="glass-panel p-6 border-l-4 border-l-green-500">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-500">Contract</h3>
-            <Key className="w-5 h-5 text-green-500" />
+        {/* Network card */}
+        <div className="card" style={{ padding: 20, borderLeft: '3px solid #60a5fa' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Network</div>
+            <Activity size={16} color="#60a5fa" />
           </div>
-          <p className="text-2xl font-bold text-slate-900 truncate" title={contractAddress || 'Not Deployed'}>
-            {contractAddress ? `${contractAddress.slice(0, 10)}...` : 'None'}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">Organization Contract</p>
-        </motion.div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{network.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Midnight blockchain</div>
+        </div>
+
+        {/* Membership card */}
+        <div className="card" style={{ padding: 20, borderLeft: '3px solid #22c55e' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Membership</div>
+            <Shield size={16} color="#22c55e" />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+            {deployedAddress ? 'Active' : 'Pending'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {deployedAddress ? 'Contract deployed' : 'Contract not deployed'}
+          </div>
+        </div>
+
+        {/* Contract card */}
+        <div className="card" style={{ padding: 20, borderLeft: '3px solid #a78bfa' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Contract</div>
+            <Key size={16} color="#a78bfa" />
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: deployedAddress ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all', marginBottom: 4 }}>
+            {deployedAddress ? `${deployedAddress.slice(0, 18)}…` : 'Not configured'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Organisation registry</div>
+        </div>
       </div>
 
-      <h2 className="text-xl font-bold text-slate-900 pt-6">Quick Actions</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link href="/register" className="glass-panel p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors group">
-          <div className="bg-primary-50 w-12 h-12 rounded-full flex items-center justify-center text-primary-600 mb-4 group-hover:scale-110 transition-transform">
-            <Plus className="w-6 h-6" />
+      {/* Quick actions */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 32 }}>
+        <Link href="/membership" className="card card-interactive" style={{ padding: 24, textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>Manage Membership</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Join or update your membership status</div>
           </div>
-          <h3 className="font-bold text-slate-900">Register Membership</h3>
-          <p className="text-sm text-slate-500 mt-2">Generate a commitment to join</p>
+          <ArrowRight size={20} color="var(--text-muted)" />
         </Link>
-        <Link href="/verify" className="glass-panel p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors group">
-          <div className="bg-indigo-50 w-12 h-12 rounded-full flex items-center justify-center text-indigo-600 mb-4 group-hover:scale-110 transition-transform">
-            <Shield className="w-6 h-6" />
+        <Link href="/verify" className="card card-interactive" style={{ padding: 24, textDecoration: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>Verify Membership</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Generate a zero-knowledge membership proof</div>
           </div>
-          <h3 className="font-bold text-slate-900">Verify Membership</h3>
-          <p className="text-sm text-slate-500 mt-2">Prove you are a member</p>
+          <ArrowRight size={20} color="var(--text-muted)" />
         </Link>
-        <Link href="/history" className="glass-panel p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors group">
-          <div className="bg-slate-100 w-12 h-12 rounded-full flex items-center justify-center text-slate-600 mb-4 group-hover:scale-110 transition-transform">
-            <History className="w-6 h-6" />
+      </div>
+
+      {/* Deploy panel */}
+      <div className="card" style={{ padding: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <Server size={20} color="var(--accent)" />
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Contract Deployment</h2>
+        </div>
+
+        {/* Readiness checklist */}
+        <div style={{ marginBottom: 24 }}>
+          {[
+            { label: 'Wallet', ok: status === 'connected', value: status === 'connected' ? `Connected (${walletName})` : 'Not connected' },
+            { label: 'Network', ok: true, value: network.name },
+            { label: 'Contract', ok: true, value: 'Anonymous Membership Organisation (compiled)' },
+            { label: 'Contract Address', ok: !!deployedAddress, value: deployedAddress ? `${deployedAddress.slice(0, 24)}…` : 'Not deployed' },
+          ].map(item => (
+            <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.ok ? 'var(--green)' : 'var(--amber)', flexShrink: 0 }} />
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', width: 120, flexShrink: 0, fontWeight: 600 }}>{item.label}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: item.label === 'Contract Address' ? 'JetBrains Mono, monospace' : 'inherit' }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Deploy button and status */}
+        {deployStatus === 'idle' && (
+          <button
+            className="btn btn-primary"
+            onClick={handleDeploy}
+            disabled={status !== 'connected'}
+          >
+            <Server size={16} /> Deploy Contract
+          </button>
+        )}
+
+        {deployStatus === 'waiting' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
+            <span className="spinner" /> Waiting for wallet approval…
           </div>
-          <h3 className="font-bold text-slate-900">View History</h3>
-          <p className="text-sm text-slate-500 mt-2">Check past verifications</p>
-        </Link>
+        )}
+        {deployStatus === 'submitted' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
+            <span className="spinner" /> Transaction submitted. Waiting for confirmation…
+          </div>
+        )}
+        {deployStatus === 'done' && (
+          <div style={{ padding: '14px 18px', background: 'var(--green-dim)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, fontSize: 14 }}>
+            <div style={{ fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>✓ Contract Deployed</div>
+            <div style={{ color: 'var(--text-secondary)' }}>
+              Set <code style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--accent)' }}>NEXT_PUBLIC_CONTRACT_ADDRESS</code> in your <code style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--accent)' }}>.env.local</code> to the deployed address.
+            </div>
+          </div>
+        )}
+        {deployStatus === 'error' && (
+          <div style={{ padding: '14px 18px', background: 'var(--red-dim)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, fontSize: 14, color: 'var(--red)' }}>
+            {deployError}
+          </div>
+        )}
       </div>
     </div>
   );

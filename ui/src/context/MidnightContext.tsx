@@ -1,25 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createMidnightProviders, getCompiledContract, PRIVATE_STATE_ID } from '../lib/midnight';
-import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
-
-declare global {
-  interface Window {
-    midnight?: Record<string, {
-      enable: () => Promise<any>;
-      name?: string;
-      icon?: string;
-      apiVersion?: string;
-    }>;
-    cardano?: Record<string, {
-      enable: () => Promise<any>;
-      name?: string;
-      icon?: string;
-      apiVersion?: string;
-    }>;
-  }
-}
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 export interface NetworkConfig {
   name: string;
@@ -41,7 +22,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
     name: 'Midnight Testnet',
     indexer: 'https://indexer.testnet.midnight.network/api/v1/graphql',
     indexerWS: 'wss://indexer.testnet.midnight.network/api/v1/graphql/ws',
-    proofServer: 'http://localhost:6300', // Local proof server for browser extension usually
+    proofServer: 'http://localhost:6300',
     zkConfigPathUrl: '/contracts/managed/anonymous-membership-organisation',
   },
   preprod: {
@@ -50,17 +31,20 @@ const NETWORKS: Record<string, NetworkConfig> = {
     indexerWS: 'wss://indexer.preprod.midnight.network/api/v1/graphql/ws',
     proofServer: 'http://localhost:6300',
     zkConfigPathUrl: '/contracts/managed/anonymous-membership-organisation',
-  }
+  },
 };
+
+export type WalletStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface MidnightContextType {
   walletAddress: string | null;
   walletName: string;
-  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  coinPublicKey: string | null;
+  status: WalletStatus;
   connectionError: string | null;
   network: NetworkConfig;
   contractAddress: string | null;
-  deployedContract: any | null; // Replace with proper type when possible
+  walletApi: any | null;
   deployContractAction: () => Promise<string>;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
@@ -68,119 +52,165 @@ interface MidnightContextType {
 
 const MidnightContext = createContext<MidnightContextType | undefined>(undefined);
 
+function detectMidnightWallet(): { provider: any; name: string; key: string } | null {
+  const w = window as any;
+
+  // Potential objects where wallets inject themselves
+  // We ONLY scan w.midnight to avoid accidentally grabbing Cardano CIP-30 APIs from w.cardano
+  const spaces = [w.midnight].filter(Boolean);
+
+  const candidates = [
+    { key: 'mnLace', name: 'Lace/1AM Wallet' },
+    { key: 'midnight', name: 'Midnight Wallet' },
+    { key: 't1am', name: '1AM Wallet (Fallback)' },
+    { key: '1am', name: '1AM Wallet (Fallback)' },
+    { key: 'lace', name: 'Lace Wallet (Fallback)' }
+  ];
+
+  for (const space of spaces) {
+    for (const c of candidates) {
+      const p = space[c.key];
+      // Check if it's an object with an enable or connect function
+      if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
+        console.log(`Detected wallet via known key: ${c.key}`);
+        return { provider: p, name: c.name, key: c.key };
+      }
+    }
+  }
+
+  // Fallback: scan all keys in window.midnight
+  if (w.midnight) {
+    for (const key of Object.keys(w.midnight)) {
+      const p = w.midnight[key];
+      if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
+        console.log(`Detected wallet via fallback key: ${key}`);
+        return { provider: p, name: p.name || key, key };
+      }
+    }
+
+    if (typeof w.midnight.enable === 'function' || typeof w.midnight.connect === 'function') {
+      console.log(`Detected wallet directly on window.midnight`);
+      return { provider: w.midnight, name: w.midnight.name || 'Midnight Wallet', key: 'midnight' };
+    }
+  }
+
+  return null;
+}
+
 export function MidnightProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [walletName, setWalletName] = useState<string>('Midnight Wallet');
-  const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [coinPublicKey, setCoinPublicKey] = useState<string | null>(null);
+  const [walletName, setWalletName] = useState<string>('');
+  const [status, setStatus] = useState<WalletStatus>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [deployedContract, setDeployedContract] = useState<any | null>(null);
-  const [providers, setProviders] = useState<any | null>(null);
+  const [walletApi, setWalletApi] = useState<any | null>(null);
 
-  const envNetwork = process.env.NEXT_PUBLIC_MIDNIGHT_NETWORK || 'local';
-  const network = NETWORKS[envNetwork] || NETWORKS.local;
-  
-  // The contract address can be passed in via env or loaded elsewhere
+  const envNetwork = process.env.NEXT_PUBLIC_MIDNIGHT_NETWORK || 'preprod';
+  const network = NETWORKS[envNetwork] || NETWORKS.preprod;
   const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || null;
 
-  const connectWallet = async () => {
+  const connectWallet = useCallback(async () => {
+    setStatus('connecting');
+    setConnectionError(null);
+
     try {
-      setStatus('connecting');
-      setConnectionError(null);
+      // Wallet must be injected by browser extension, must run client-side
+      if (typeof window === 'undefined') throw new Error('Browser environment required.');
 
-      // Auto-detect Midnight Lace Wallet
-      let provider: any = null;
-      let detectedName = 'Midnight Lace Wallet';
-      
-      if (window.midnight?.mnLace) {
-        provider = window.midnight.mnLace;
-      } else if (window.midnight) {
-        const firstKey = Object.keys(window.midnight)[0];
-        if (firstKey && window.midnight[firstKey]) {
-          provider = window.midnight[firstKey];
-          detectedName = provider.name || firstKey;
-        }
+      const detected = detectMidnightWallet();
+      if (!detected) {
+        const p1am = typeof window !== 'undefined' && (window as any).midnight && (window as any).midnight['1am'];
+        const keys = p1am ? Object.keys(p1am).join(', ') : 'null';
+        const typeOfEnable = p1am ? typeof p1am.enable : 'undefined';
+        throw new Error(
+          `No Midnight wallet detected. 1am keys: [${keys}], type of enable: ${typeOfEnable}.`
+        );
       }
 
-      if (!provider || typeof provider.enable !== 'function') {
-        throw new Error('No Midnight wallet extension detected. Please install the Lace Midnight extension.');
+      // Call connect() or enable() — this triggers the wallet popup
+      const api = typeof detected.provider.connect === 'function' 
+        ? await detected.provider.connect() 
+        : await detected.provider.enable();
+      
+      if (!api) throw new Error('Wallet did not return an API. Authorization may have been rejected.');
+
+      if (typeof api.getUtxos === 'function' && typeof api.state !== 'function') {
+        throw new Error('Detected Cardano CIP-30 API instead of Midnight API. Please ensure your wallet supports Midnight and provides the Midnight API.');
       }
 
-      // Authorize
-      const api = await provider.enable();
-      
-      // Initialize providers
-      const newProviders = await createMidnightProviders(api, network);
-      setProviders(newProviders);
-      
-      // Load contract if address exists
-      let deployed: any = null;
-      if (contractAddress) {
-        const compiledContract = await getCompiledContract(network.zkConfigPathUrl);
-        deployed = await findDeployedContract(newProviders, {
-          compiledContract: compiledContract as any,
-          contractAddress,
-          privateStateId: PRIVATE_STATE_ID,
-          initialPrivateState: {},
-        });
-        setDeployedContract(deployed);
-      }
-
-      // Update state
-      let addr = 'unknown';
+      // Retrieve account state
+      let address = 'unknown';
+      let cpk: string | null = null;
       try {
-          const state = await api.state();
-          addr = state.address || 'unknown';
+        const state = await api.state();
+        address = state.address || state.coinPublicKey || 'unknown';
+        cpk = state.coinPublicKey || null;
       } catch (e) {
-          console.error("Could not get address from state:", e);
+        console.warn('Could not retrieve wallet state:', e);
       }
-      
-      setWalletAddress(addr);
-      setWalletName(detectedName);
+
+      setWalletApi(api);
+      setWalletAddress(address);
+      setCoinPublicKey(cpk);
+      setWalletName(detected.name);
       setStatus('connected');
     } catch (err: any) {
-      console.error('Wallet connection error:', err);
+      console.warn('Wallet connection error:', err);
       setStatus('error');
-      setConnectionError(err.message || 'Failed to connect wallet');
+      let msg = 'Connection failed. Please try again.';
+      if (err?.message) {
+        msg = err.message;
+      } else if (typeof err === 'string') {
+        msg = err;
+      } else if (err && typeof err === 'object') {
+        msg = JSON.stringify(err);
+      }
+      setConnectionError(msg);
     }
-  };
+  }, []);
 
-  const deployContractAction = async () => {
-    if (!providers) throw new Error("Wallet not fully connected (providers missing)");
+  const deployContractAction = useCallback(async () => {
+    if (!walletApi) throw new Error("Wallet not fully connected");
     
-    // Dynamically import deployContract here if needed, or we already imported it
-    // Wait, deployContract is NOT imported at the top! I need to import it.
+    // dynamically import to avoid SSR issues with wasm
     const { deployContract } = await import('@midnight-ntwrk/midnight-js-contracts');
-    
+    const { createMidnightProviders, getCompiledContract, PRIVATE_STATE_ID } = await import('../lib/midnight');
+
+    const providers = await createMidnightProviders(walletApi, network);
     const compiledContract = await getCompiledContract(network.zkConfigPathUrl);
+    
     const deployed = await deployContract(providers, {
-      compiledContract: compiledContract as any,
-      args: [providers.walletProvider.getCoinPublicKey()],
       privateStateId: PRIVATE_STATE_ID,
       initialPrivateState: {},
+      compiledContract: compiledContract as any,
+      args: [providers.walletProvider.getCoinPublicKey()],
     });
     
-    setDeployedContract(deployed);
     return deployed.deployTxData.public.contractAddress;
-  };
+  }, [walletApi, network]);
 
-  const disconnectWallet = () => {
+  const disconnectWallet = useCallback(() => {
+    setWalletApi(null);
     setWalletAddress(null);
-    setDeployedContract(null);
+    setCoinPublicKey(null);
+    setWalletName('');
     setStatus('disconnected');
-  };
+    setConnectionError(null);
+  }, []);
 
   return (
     <MidnightContext.Provider value={{
       walletAddress,
       walletName,
+      coinPublicKey,
       status,
       connectionError,
       network,
       contractAddress,
-      deployedContract,
+      walletApi,
       deployContractAction,
       connectWallet,
-      disconnectWallet
+      disconnectWallet,
     }}>
       {children}
     </MidnightContext.Provider>
@@ -188,9 +218,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
 }
 
 export function useMidnight() {
-  const context = useContext(MidnightContext);
-  if (context === undefined) {
-    throw new Error('useMidnight must be used within a MidnightProvider');
-  }
-  return context;
+  const ctx = useContext(MidnightContext);
+  if (!ctx) throw new Error('useMidnight must be used within MidnightProvider');
+  return ctx;
 }
