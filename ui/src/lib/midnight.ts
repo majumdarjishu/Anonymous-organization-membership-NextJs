@@ -15,7 +15,7 @@ export const getCompiledContract = async (zkConfigPathUrl: string, witnesses?: a
   
   // The 'credential' witness expects to return a tuple of: [PrivateState, { secret: Uint8Array, membershipId: bigint }]
   const activeWitnesses = witnesses || {
-    credential: () => [{}, { secret: new Uint8Array(32), membershipId: 0n }]
+    credential: () => [{}, { secret: new Uint8Array(32), membershipId: BigInt(0) }]
   };
 
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
