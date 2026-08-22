@@ -3,9 +3,10 @@
 Enterprise Zero-Knowledge Organization Membership & Verification built natively on the Midnight Network using Compact smart contracts, client-side ZK-SNARK proving, dual-state ledger privacy, and Next.js.
 
 ## 🔗 Links
-- **Live Video**: [https://www.youtube.com/watch?v=D4IRcmAV-2Q](https://www.youtube.com/watch?v=D4IRcmAV-2Q)
-- **Live Deployment**: [https://anonymous-organization-membership-n.vercel.app/](https://anonymous-organization-membership-n.vercel.app/)
-- **GitHub Repository**: [https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs)
+
+[![Live Video](https://img.shields.io/badge/YouTube-Live_Video-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=D4IRcmAV-2Q)
+[![Live Deployment](https://img.shields.io/badge/Vercel-Live_Deployment-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://anonymous-organization-membership-n.vercel.app/)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs)
 
 ## 📸 Application Screenshots
 
