@@ -1,164 +1,178 @@
-# Anonymous Organization Membership
+# 🛡️ Anonymous Organization Membership
 
-A privacy-preserving organization membership platform built on the Midnight Network for the Rise In Midnight Builder Challenge Level 3.
+Enterprise Zero-Knowledge Organization Membership & Verification built natively on the Midnight Network using Compact smart contracts, client-side ZK-SNARK proving, dual-state ledger privacy, and Next.js.
 
-## Links
+## 🔗 Links
 - **Live Video**: [https://www.youtube.com/watch?v=D4IRcmAV-2Q](https://www.youtube.com/watch?v=D4IRcmAV-2Q)
 - **Live Deployment**: [https://anonymous-organization-membership-n.vercel.app/](https://anonymous-organization-membership-n.vercel.app/)
 - **GitHub Repository**: [https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs)
 
-## Contract Address
+## 📸 Application Screenshots
 
-**This section is mandatory.**
+*(Placeholder for application screenshots)*
 
-| Network | Contract Address |
-|---------|------------------|
-| Preprod | `<YOUR_DEPLOYED_CONTRACT_ADDRESS>` |
+## 🧠 Executive Summary & Problem Statement
 
-## Features
+### The Problem
+Traditional organization membership systems suffer from critical privacy flaws:
+- **Raw PII Exposure**: Members are forced to present personal identifiers (names, emails, physical IDs) to prove they belong to an organization, creating massive identity leakage.
+- **On-Chain Surveillance**: In standard blockchain access dApps, signing a transaction permanently links a public wallet address to physical memberships and timestamps on an immutable public ledger.
+- **Data Breach Vulnerabilities**: Centralized member databases represent lucrative honeypots for credential harvesting.
 
-1. **Private Membership Registration**: Organizations register a public commitment of a member's credential.
-2. **Anonymous Verification**: Members prove their eligibility locally using Zero-Knowledge proofs.
-3. **Multi-Wallet Support**: Seamlessly switch between Lace Wallet and 1AM Wallet.
-4. **Premium Enterprise UI**: Built with Next.js App Router, Tailwind CSS, and Framer Motion.
+### The Solution
+Anonymous Organization Membership enables members to mathematically prove their organizational authorization in Zero-Knowledge.
+- No passcodes or credentials ever leave the member's local device.
+- No wallet identities or personal identifiable information (PII) are published on-chain.
+- The Midnight ledger verifies the cryptographic proof, increments the aggregate verification counter, and records a one-way commitment hash.
 
-## What This Project Does
+## ⚙️ Working Principles & Cryptographic Flow
 
-This full-stack DApp allows a person to prove they are a valid member of an organization without publicly revealing their identity, name, email, or private credential. Traditional membership systems require members to present personal identifiers to prove they belong, creating massive identity leakage. This project solves that using Midnight's Zero-Knowledge technology, where members generate a public commitment from a private credential, and when verifying, they generate a proof locally in their browser. The blockchain verifies the proof without ever seeing the credential.
+The platform leverages Midnight's dual-state architecture where private witness execution is strictly isolated on the client side, and only succinct ZK-SNARK proofs cross the network boundary:
 
-## Privacy Model
-
-### Public Information
-- Verification occurred (a membership proof was verified)
-- Public commitment hash of registered members
-- Verification status and counter
-- Safe organization metadata (e.g., name, status)
-
-### Private Information
-- Member identity, name, email
-- Membership ID number
-- Private membership credential or secret
-- Private wallet keys
-
-### What users prove without revealing
-The Midnight contract enforces that members can prove they belong to the organization by generating a ZK proof against the registered public commitment. They prove they hold the private credential without ever revealing the credential itself. The contract only uses the `disclose()` operation for the public commitment, the nullifier (to prevent duplicate proofs), and global counters.
-
-## Tech Stack
-
-- **Smart Contract**: Compact (Midnight Zero-Knowledge Circuits)
-- **Frontend**: Next.js (App Router), React, Tailwind CSS, Framer Motion
-- **Blockchain Integration**: `@midnight-ntwrk` SDK 
-- **Infrastructure**: Dockerized Midnight Proof Server and Indexer
-
-## Folder Structure
-
-```
-anonymous-membership-organisation/
-├── contract/               # Compact smart contracts
-│   └── anonymous-membership-organisation.compact
-├── src/                     # CLI and deployment scripts
-│   ├── cli.ts               # Interactive CLI for admin tasks
-│   ├── deploy.ts            # Deployment script
-│   └── setup.ts             # Account setup script
-├── ui/                      # Next.js frontend application
-│   ├── src/app/             # App Router pages and layouts
-│   ├── src/components/      # Reusable UI components
-│   └── src/context/         # Wallet and Midnight context
-├── test/                    # Contract unit and integration tests
-├── docker-compose.yml       # Local devnet infrastructure
-└── README.md                # Project documentation
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MEMBER'S LOCAL CLIENT                                                       │
+│                                                                             │
+│      [ Raw Credential ] + [ Membership ID ]                                 │
+│                                                                             │
+│          ▼ (Private witness execution strictly inside browser/WASM)         │
+│                                                                             │
+│ ┌──────────────────────────────────────────────┐                            │
+│ │ Midnight Compact Circuit                     │                            │
+│ │ - credential() witness execution             │  ← Midnight Proof Server   │
+│ │ - verifyMembership() constraint evaluation   │    (localhost:6300)        │
+│ └──────────────────────┬───────────────────────┘                            │
+│                        │                                                    │
+│                        ▼ (ZK-SNARK Proof only)                              │
+└─────────────────────────┼───────────────────────────────────────────────────┘
+                          ▼ (Network Boundary: ZERO PII Transmitted)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MIDNIGHT PREPROD LEDGER                                                     │
+│                                                                             │
+│ PUBLIC ON-CHAIN STATE:                                                      │
+│ ✅ verificationCount — Aggregate counter incremented (+1)                   │
+│ ✅ memberCommitments — One-way cryptographic fingerprints                   │
+│ ✅ verifiedMembers — Tracked to prevent double-spending/duplicate proofs    │
+│                                                                             │
+│ PROTECTED PRIVATE STATE (Never exposed or stored on-chain):                 │
+│ ❌ rawCredential — Plaintext secret string                                  │
+│ ❌ memberIdentity — Name, email, or personal details                        │
+│ ❌ memberWalletId — Personal wallet address                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites
+### 🛡️ Midnight Privacy Model Breakdown
 
-- Node.js v22
-- Docker and Docker Compose
-- Midnight Compact Compiler (`npm install -g @midnight-ntwrk/compact-compiler`)
-- A connected Midnight-compatible browser wallet (Lace or 1AM)
+| Parameter | Visibility | Storage Location | Cryptographic Guarantee |
+|-----------|------------|------------------|-------------------------|
+| **Raw Credential** | 🔒 Private | Client RAM only | Never serialized over network; evaluated in ZK witness |
+| **Membership ID** | 🔒 Private | Ephemeral | Used locally, never revealed on the public ledger |
+| **Member Identity** | 🔒 Private | Off-Chain | Zero wallet-to-organization correlation on public ledger |
+| **Verification Counter** | 🌐 Public | Midnight Ledger | Aggregate counter tracking verified members |
+| **Commitment Hash** | 🌐 Public | Midnight Ledger | One-way cryptographic fingerprint |
+| **Admin Key** | 🌐 Public | Midnight Ledger | Active organization admin identifier |
 
-## Installation
+## 📖 Step-by-Step Developer & Operator Guide
 
-1. Clone the repository
-2. Install root dependencies:
-   ```bash
-   npm install
-   ```
-3. Install contract dependencies:
-   ```bash
-   cd contract
-   npm install
-   cd ..
-   ```
-4. Install UI dependencies:
-   ```bash
-   cd ui
-   npm install
-   cd ..
-   ```
-5. Start the local proof server:
-   ```bash
-   docker run -p 6300:6300 midnightnetwork/proof-server
-   ```
+### 1. System Requirements & Prerequisites
+- **Node.js**: v22.x (LTS recommended)
+- **Docker**: For running the local Midnight Proof Server
+- **Browser Extension**: [1AM Wallet](https://1am.xyz/) or [Midnight Lace](https://midnight.network/get-lace)
+- **Midnight Compiler**: `@midnight-ntwrk/compact-compiler`
 
-## Build
-
-To build the project completely:
-
+### 2. Installation & Setup
 ```bash
-npm run build
+# Clone repository
+git clone https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs.git
+cd Anonymous-organization-membership-NextJs
+
+# Install root dependencies
+npm install
+
+# Install UI dependencies
 cd ui
-npm run build
+npm install
 ```
 
-## Compile
-
-Compile the Compact smart contract to generate ZKIR and proving keys:
-
+### 3. Start the Midnight Proof Server
+Run the containerized Midnight Prover locally:
 ```bash
-npm run compact
+docker run -d --name vvp-proof-server -p 6300:6300 midnightnetwork/proof-server
 ```
 
-## Manual Deployment
+### 4. Fund Testnet Wallet
+Get testnet tDUST / tNIGHT tokens from the official Faucet:
+- **Faucet URL**: [https://midnight-tmnight-preprod.nethermind.dev/](https://midnight-tmnight-preprod.nethermind.dev/)
+- **Required**: `tDUST` to pay transaction fees. Convert `tNIGHT` to `tDUST` in your wallet extension.
 
-Deployment is intentionally skipped. You must deploy the contract manually using your wallet seed or via the frontend deployment UI. 
+### 5. Launch the Web Application
+```bash
+cd ui
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000/).
 
-Run the deployment script:
+### 6. Connect Wallet (1AM Wallet & Lace)
+- Click the "Connect Wallet" button in the top navigation bar.
+- The platform automatically scans `window.midnight` using the official `@midnight-ntwrk/dapp-connector-api` specification.
+- Select your detected wallet (1AM Wallet or Midnight Lace) and approve the authorization prompt.
+
+### 7. Deploying Contracts to Midnight Preprod
+Deployment is intentionally skipped in the repo. You must deploy the contract manually using your wallet seed or via the frontend deployment UI.
 ```bash
 NODE_OPTIONS="--max-old-space-size=12288" npm run deploy -- --network preprod
 ```
-
 *(Alternatively, run `npm run dev` in the `ui/` folder and navigate to `http://localhost:3000/admin/deploy` to deploy it easily through your browser wallet).*
 
-## After Deployment
-
-The only remaining manual steps are:
-1. Deploy the Compact contract.
-2. Copy the deployed contract address.
-3. Replace every occurrence of:
-```
-<YOUR_DEPLOYED_CONTRACT_ADDRESS>
-```
-No additional coding should be required.
-
-## Environment Variables
-
-Create a `.env.local` inside the `ui/` folder:
-
+Once deployed, create a `.env.local` inside the `ui/` folder:
 ```env
 NEXT_PUBLIC_MIDNIGHT_NETWORK=preprod
 NEXT_PUBLIC_CONTRACT_ADDRESS=<YOUR_DEPLOYED_CONTRACT_ADDRESS>
 ```
 
-## Screenshots
+## ✅ Feature & Compliance Checklist
 
-[Placeholder for application screenshots]
+**Smart Contracts & ZK Circuits**
+- [x] Written in Midnight Compact Language (`contracts/anonymous-membership-organisation.compact`)
+- [x] Private witness computation for membership credentials
+- [x] Public state transitions for aggregate counters and commitment fingerprints
+- [x] Zero PII exposure on public ledger state
 
-## Initial Idea
+**DApp & Wallet Connector**
+- [x] Built with Next.js App Router and native TypeScript
+- [x] Full compliance with official `@midnight-ntwrk/dapp-connector-api` v4 spec
+- [x] Native support for 1AM Wallet and Midnight Lace via DApp connector
+- [x] Fallback mechanisms for legacy API connections
+- [x] Premium Enterprise UI built with Tailwind CSS and Framer Motion
 
-[Placeholder for original project idea]
+## 🏛️ Real-World Sector Use Cases
 
-## Troubleshooting
+| Sector | Practical Application |
+|--------|-----------------------|
+| **Corporate Facilities** | Employee, contractor, and guest admission without logging identities in central databases. |
+| **Government & Defense** | Clearance-level access verification with mathematically guaranteed zero surveillance trail. |
+| **VIP Events & Arenas** | Ticket and credential verification without correlating physical attendance to personal public wallets. |
+| **Healthcare & Biotech** | HIPAA and GDPR-compliant laboratory access gates where identity exposure violates patient confidentiality. |
 
-- **Contract compilation fails**: Ensure you are using the correct `compact` compiler version (`compact --version`).
-- **Browser wallet won't connect**: Ensure you have Lace or 1AM installed and the network is set to Preprod.
-- **500 Internal Server Error in UI**: Ensure you have successfully run `npm install` inside the `ui` folder to install all GraphQL sub-dependencies.
+## 🛠️ Monorepo Structure
+
+```text
+anonymous-membership-organisation/
+├── contracts/               # Compact ZK smart contracts
+│   └── anonymous-membership-organisation.compact
+├── src/                     # CLI and deployment scripts
+│   ├── cli.ts               # Interactive CLI for admin tasks
+│   ├── deploy.ts            # Deployment script
+│   └── setup.ts             # Account setup script
+├── ui/                      # Next.js Web Application
+│   ├── src/app/             # App Router pages
+│   ├── src/components/      # Reusable UI components
+│   ├── src/context/         # Global AppContext & wallet lifecycle state
+│   └── src/lib/             # ZK utilities and Midnight provider logic
+├── test/                    # Contract unit and integration tests
+├── docker-compose.yml       # Local devnet infrastructure
+└── README.md                # Primary documentation & user guide
+```
+
+## 📄 License
+This project is open-source and distributed under the MIT License.
