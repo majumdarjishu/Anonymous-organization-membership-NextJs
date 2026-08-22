@@ -7,7 +7,7 @@ import { UserPlus, CheckCircle, Clock, Loader2, ShieldCheck } from 'lucide-react
 export default function MembershipPage() {
   const { status, walletAddress, walletName, connectWallet, connectionError, contractAddress } = useMidnight();
   const [connecting, setConnecting] = useState(false);
-  const [membershipState, setMembershipState] = useState<'unknown' | 'not-member' | 'joining' | 'active'>('unknown');
+  const [membershipState, setMembershipState] = useState<'unknown' | 'not-member' | 'joining' | 'active' | 'error'>('unknown');
   const [membershipId, setMembershipId] = useState('');
   const [commitment, setCommitment] = useState('');
   const [txHash, setTxHash] = useState<string | null>(null);

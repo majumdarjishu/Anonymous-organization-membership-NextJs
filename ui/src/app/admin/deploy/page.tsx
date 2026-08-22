@@ -48,7 +48,7 @@ export default function DeployPage() {
           <div className="space-y-3 pt-2">
             <div className="flex justify-between items-center py-2 border-b border-slate-100">
               <span className="text-slate-500">Network</span>
-              <span className="font-mono font-medium text-slate-900 bg-slate-100 px-2 py-1 rounded">{network || 'undeployed'}</span>
+              <span className="font-mono font-medium text-slate-900 bg-slate-100 px-2 py-1 rounded">{network.name || 'undeployed'}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-100">
               <span className="text-slate-500">Wallet</span>

@@ -4,7 +4,7 @@ import { useMidnight } from '@/context/MidnightContext';
 import { useState, useEffect } from 'react';
 import { Fingerprint, CheckCircle, XCircle, Shield, Eye, EyeOff } from 'lucide-react';
 
-type ProofState = 'idle' | 'generating' | 'verified' | 'invalid' | 'error';
+type ProofState = 'idle' | 'generating' | 'verified' | 'invalid' | 'error' | 'ready';
 
 export default function VerifyPage() {
   const { status, walletAddress, connectWallet, connectionError, contractAddress } = useMidnight();

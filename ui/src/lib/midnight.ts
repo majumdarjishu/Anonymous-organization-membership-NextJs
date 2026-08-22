@@ -5,7 +5,6 @@ import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-pri
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-js';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
-import { Transaction } from '@midnight-ntwrk/midnight-js-types';
 import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 // The compiled contract is loaded dynamically to avoid Next.js bundling issues.
@@ -38,7 +37,7 @@ export const createMidnightProviders = async (
   const networkId = networkInfo.networkId;
 
   const addressString = shieldedAddresses[0];
-  
+
   if (typeof addressString !== 'string') {
     throw new Error(`Expected address to be a string, but got ${typeof addressString}: ${JSON.stringify(addressString)}`);
   }
@@ -48,17 +47,19 @@ export const createMidnightProviders = async (
   const encryptionPublicKey = parsedAddress.encryptionPublicKey.data;
 
   const walletProvider = {
+    coinPublicKey,
+    encryptionPublicKey,
     getCoinPublicKey: () => coinPublicKey,
     getEncryptionPublicKey: () => encryptionPublicKey,
-    balanceTx: async (tx: any, ttl?: Date) => {
+    balanceTx: async (tx: any, _newCoins: any): Promise<any> => {
       const txHex = toHex(tx.serialize());
       const recipe = await walletApi.balanceUnsealedTransaction(txHex);
-      return Transaction.deserialize(fromHex(recipe.tx));
+      return fromHex(recipe.tx);
     },
-    submitTx: async (tx: any) => {
-      const txHex = toHex(tx.serialize());
+    submitTx: async (tx: any): Promise<string> => {
+      const txHex = toHex(tx);
       await walletApi.submitTransaction(txHex);
-      return tx.transactionHash; // Transaction hash
+      return 'submitted';
     },
   };
 
@@ -80,3 +81,5 @@ export const createMidnightProviders = async (
     midnightProvider: walletProvider,
   };
 };
+
+export { findDeployedContract };

@@ -6,7 +6,7 @@ import { Shield, Lock, Activity, UserPlus, CheckCircle, AlertCircle, Rocket } fr
 import { motion } from 'framer-motion';
 
 export default function AdminPage() {
-  const { status, deployedContract, walletAddress, deployContractAction, contractAddress } = useMidnight();
+  const { status, walletAddress, deployContractAction, contractAddress } = useMidnight();
   const [commitmentInput, setCommitmentInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -25,7 +25,7 @@ export default function AdminPage() {
 
   const handleAddPatient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commitmentInput || !deployedContract) return;
+    if (!commitmentInput || !contractAddress) return;
 
     // Convert hex string to Uint8Array
     let commitment: Uint8Array;
@@ -107,7 +107,7 @@ export default function AdminPage() {
 
               <button 
                 type="submit" 
-                disabled={!commitmentInput || isSubmitting || !deployedContract}
+                disabled={!commitmentInput || isSubmitting || !contractAddress}
                 className="w-full relative overflow-hidden bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-medium px-4 py-3 transition-all duration-300 disabled:opacity-50"
               >
                 {isSubmitting ? 'Submitting to Network...' : 'Add Patient to Network'}
@@ -133,14 +133,14 @@ export default function AdminPage() {
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="glass-panel p-6">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Contract Deployment</h3>
             <div className="space-y-4">
-              {contractAddress || deployedContract ? (
+              {contractAddress ? (
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Contract Status</p>
                   <div className="flex items-center text-sm font-bold text-emerald-400">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
                     Deployed & Active
                   </div>
-                  <p className="text-xs font-mono text-slate-400 mt-2 break-all">{contractAddress || deployedContract.deployTxData.public.contractAddress}</p>
+                  <p className="text-xs font-mono text-slate-400 mt-2 break-all">{contractAddress}</p>
                 </div>
               ) : (
                 <div>
