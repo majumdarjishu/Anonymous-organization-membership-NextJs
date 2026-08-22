@@ -2,6 +2,11 @@
 
 A privacy-preserving organization membership platform built on the Midnight Network for the Rise In Midnight Builder Challenge Level 3.
 
+## Links
+- **Live Video**: [https://www.youtube.com/watch?v=D4IRcmAV-2Q](https://www.youtube.com/watch?v=D4IRcmAV-2Q)
+- **Live Deployment**: [https://anonymous-organization-membership-n.vercel.app/](https://anonymous-organization-membership-n.vercel.app/)
+- **GitHub Repository**: [https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs)
+
 ## Contract Address
 
 **This section is mandatory.**
