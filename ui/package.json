@@ -22,27 +22,27 @@
     "@midnight-ntwrk/wallet": "^5.0.0",
     "@midnight-ntwrk/wallet-api": "^5.0.0",
     "@midnight-ntwrk/wallet-sdk": "^1.2.0",
+    "@tailwindcss/postcss": "^4",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
     "graphql": "^16.8.1",
     "graphql-ws": "^5.16.0",
+    "lightningcss": "^1.33.0",
     "lucide-react": "^1.33.0",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "rxjs": "^7.8.2",
     "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
-    "lightningcss": "^1.33.0",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
