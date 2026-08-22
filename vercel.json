@@ -1,9 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "ui/package.json",
-      "use": "@vercel/next"
-    }
-  ]
+  "buildCommand": "cd ui && npm install && npm run build",
+  "outputDirectory": "ui/.next",
+  "framework": "nextjs"
 }
