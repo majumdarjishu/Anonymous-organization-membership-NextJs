@@ -136,8 +136,10 @@ export const createMidnightProviders = async (
 
   const addressString = await resolveShieldedAddress(walletApi);
 
-  const networkInfo = await walletApi.getConfiguration();
-  const networkId = networkInfo.networkId;
+  const networkInfo = typeof walletApi.getConfiguration === 'function'
+    ? await walletApi.getConfiguration()
+    : (walletApi.getConfiguration ?? walletApi.configuration ?? walletApi.state ?? {});
+  const networkId = (typeof networkInfo === 'function' ? await networkInfo() : networkInfo)?.networkId ?? 'Undeployed';
 
   const parsedAddress = MidnightBech32m.parse(addressString).decode(ShieldedAddress, networkId);
   const coinPublicKey = parsedAddress.coinPublicKey.data;

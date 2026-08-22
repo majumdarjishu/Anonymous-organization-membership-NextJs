@@ -56,7 +56,6 @@ interface MidnightContextType {
 
 const MidnightContext = createContext<MidnightContextType | undefined>(undefined);
 
-/** Formats a raw wallet key into a readable name */
 function formatWalletKeyName(key: string): string {
   return key
     .replace(/[-_]/g, ' ')
@@ -70,29 +69,25 @@ function formatWalletKeyName(key: string): string {
 
 function detectMidnightWallet(): { provider: any; name: string; key: string } | null {
   const w = window as any;
-
-  // Only scan window.midnight to avoid accidentally grabbing Cardano CIP-30 APIs
   if (!w.midnight) return null;
 
   const candidates = [
-    { key: 'mnLace',    label: 'Lace Wallet' },
-    { key: 'midnight',  label: 'Midnight Wallet' },
-    { key: 't1am',      label: '1AM Wallet' },
-    { key: '1am',       label: '1AM Wallet' },
-    { key: 'lace',      label: 'Lace Wallet' },
+    { key: 'mnLace', label: 'Lace Wallet' },
+    { key: 'midnight', label: 'Midnight Wallet' },
+    { key: 't1am', label: '1AM Wallet' },
+    { key: '1am', label: '1AM Wallet' },
+    { key: 'lace', label: 'Lace Wallet' },
   ];
 
   for (const c of candidates) {
     const p = w.midnight[c.key];
     if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
-      // Prefer the wallet's own name over our hardcoded label
       const name = (typeof p.name === 'string' && p.name.trim()) ? p.name.trim() : c.label;
       console.log(`[wallet] Detected via key "${c.key}": ${name}`);
       return { provider: p, name, key: c.key };
     }
   }
 
-  // Generic fallback: scan all keys in window.midnight
   for (const key of Object.keys(w.midnight)) {
     const p = w.midnight[key];
     if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
@@ -102,7 +97,6 @@ function detectMidnightWallet(): { provider: any; name: string; key: string } | 
     }
   }
 
-  // Direct window.midnight check
   if (typeof w.midnight.enable === 'function' || typeof w.midnight.connect === 'function') {
     const name = (typeof w.midnight.name === 'string' && w.midnight.name.trim()) ? w.midnight.name.trim() : 'Midnight Wallet';
     return { provider: w.midnight, name, key: 'midnight' };
@@ -111,13 +105,35 @@ function detectMidnightWallet(): { provider: any; name: string; key: string } | 
   return null;
 }
 
-/** Try to extract a shielded address string from any possible return value */
+/** Get all accessible keys on an object including prototype chain */
+function getAllKeys(obj: any): string[] {
+  const keys = new Set<string>();
+  try {
+    for (const k of Object.keys(obj ?? {})) keys.add(k);
+    for (const k of Object.getOwnPropertyNames(obj ?? {})) keys.add(k);
+    const proto = Object.getPrototypeOf(obj);
+    if (proto && proto !== Object.prototype) {
+      for (const k of Object.getOwnPropertyNames(proto)) keys.add(k);
+    }
+  } catch (_) {}
+  return [...keys].sort();
+}
+
+/** Call a method OR read it as a plain property — handles both API styles */
+async function callOrRead(obj: any, methodName: string): Promise<any> {
+  const val = obj?.[methodName];
+  if (typeof val === 'function') return await val.call(obj);
+  if (val !== undefined) return val; // plain property (some wallets do this)
+  return undefined;
+}
+
+/** Extract a shielded address string from any possible return value */
 function extractAddressString(raw: any): string | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'string' && raw.length > 0) return raw;
   if (raw instanceof Uint8Array && raw.length > 0)
     return Array.from(raw as Uint8Array).map((b: number) => b.toString(16).padStart(2, '0')).join('');
-  if (Array.isArray(raw) && raw.length > 0) {
+  if (Array.isArray(raw)) {
     for (const item of raw) { const r = extractAddressString(item); if (r) return r; }
     return null;
   }
@@ -126,52 +142,86 @@ function extractAddressString(raw: any): string | null {
     for (const k of knownKeys) {
       if (typeof raw[k] === 'string' && raw[k].length > 0) return raw[k];
     }
+    // Scan all string values — prefer mn-prefixed (Midnight bech32m)
     for (const v of Object.values(raw)) {
-      if (typeof v === 'string' && (v.startsWith('mn') || (v as string).length > 20)) return v as string;
+      if (typeof v === 'string' && v.startsWith('mn') && v.length > 10) return v;
+    }
+    // Any long string that looks like an address
+    for (const v of Object.values(raw)) {
+      if (typeof v === 'string' && v.length > 20) return v;
+    }
+    // Recurse into nested objects one level
+    for (const v of Object.values(raw)) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const r = extractAddressString(v);
+        if (r) return r;
+      }
     }
   }
   return null;
 }
 
-/** Resolve display address from wallet API — tries all known methods and formats */
-async function resolveDisplayAddress(api: any): Promise<{ address: string; hasShielded: boolean }> {
-  const methodsToTry = ['getShieldedAddresses', 'getShieldedAddress', 'shieldedAddresses', 'getAddresses'];
+/** Resolve shielded address from wallet API — works with both function and property APIs */
+async function resolveDisplayAddress(
+  api: any,
+  provider: any
+): Promise<{ address: string; hasShielded: boolean }> {
+  // Log all available keys for debugging
+  const apiKeys = getAllKeys(api);
+  const providerKeys = getAllKeys(provider);
+  console.log('[wallet-connect] API keys:', apiKeys.join(', '));
+  console.log('[wallet-connect] Provider keys:', providerKeys.join(', '));
+  console.log('[wallet-connect] typeof api.state:', typeof api?.state);
+  console.log('[wallet-connect] typeof api.getShieldedAddresses:', typeof api?.getShieldedAddresses);
 
-  for (const methodName of methodsToTry) {
-    if (typeof api[methodName] !== 'function') continue;
-    try {
-      const raw = await api[methodName]();
-      console.log(`[wallet-connect] ${methodName}() raw:`, JSON.stringify(raw, (_k, v) =>
-        v instanceof Uint8Array ? `Uint8Array(${(v as Uint8Array).length})` : v
-      ));
-      const addr = extractAddressString(raw);
-      if (addr) return { address: addr, hasShielded: true };
-    } catch (e) {
-      console.warn(`[wallet-connect] ${methodName}() failed:`, e);
+  const methodsToTry = [
+    'getShieldedAddresses',
+    'getShieldedAddress',
+    'shieldedAddresses',
+    'getAddresses',
+    'addresses',
+  ];
+
+  // Try on API object first, then on provider (some wallets keep methods on provider)
+  for (const obj of [api, provider]) {
+    for (const methodName of methodsToTry) {
+      try {
+        const raw = await callOrRead(obj, methodName);
+        if (raw === undefined) continue;
+        console.log(`[wallet-connect] ${methodName} on ${obj === api ? 'api' : 'provider'}:`,
+          JSON.stringify(raw, (_k, v) => v instanceof Uint8Array ? `Uint8Array(${v.length})` : v));
+        const addr = extractAddressString(raw);
+        if (addr) return { address: addr, hasShielded: true };
+      } catch (e) {
+        // ignore
+      }
     }
   }
 
-  // Fallback: scan state() for any mn-prefixed value or account info
-  try {
-    const state = await api.state();
-    console.log('[wallet-connect] state() raw:', JSON.stringify(state));
-    if (state && typeof state === 'object') {
-      for (const v of Object.values(state)) {
-        if (typeof v === 'string' && (v as string).startsWith('mn') && (v as string).length > 10)
-          return { address: v as string, hasShielded: true };
+  // Try state() or state property on both objects
+  for (const [label, obj] of [['api', api], ['provider', provider]] as [string, any][]) {
+    try {
+      const state = await callOrRead(obj, 'state');
+      if (state === undefined) continue;
+      console.log(`[wallet-connect] state on ${label}:`,
+        JSON.stringify(state, (_k, v) => v instanceof Uint8Array ? `Uint8Array(${v.length})` : v));
+      if (state && typeof state === 'object') {
+        // Look for mn-prefixed string (Midnight shielded address)
+        for (const v of Object.values(state)) {
+          if (typeof v === 'string' && v.startsWith('mn') && v.length > 10)
+            return { address: v, hasShielded: true };
+        }
+        // ServiceUriConfig guard: skip if it has indexer (network config, not account)
+        if (!state.indexer) {
+          const addr = state.address || state.coinPublicKey;
+          if (addr && typeof addr === 'string') return { address: addr, hasShielded: false };
+        }
       }
-      if (!state.indexer) {
-        const addr = state.address || state.coinPublicKey;
-        if (addr && typeof addr === 'string') return { address: addr, hasShielded: false };
-      }
-    }
-  } catch (e) {
-    console.warn('[wallet-connect] state() failed:', e);
+    } catch (_) {}
   }
 
   return { address: 'no-shielded-account', hasShielded: false };
 }
-
 
 export function MidnightProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -182,12 +232,10 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
   const [walletApi, setWalletApi] = useState<any | null>(null);
   const [hasShieldedAccount, setHasShieldedAccount] = useState(false);
 
-  // contractAddress: env var takes priority, then localStorage, then null
   const [contractAddress, setContractAddress] = useState<string | null>(
     process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || null
   );
 
-  // Hydrate from localStorage on mount (client-only)
   useEffect(() => {
     if (!contractAddress) {
       const saved = localStorage.getItem(CONTRACT_ADDRESS_STORAGE_KEY);
@@ -215,41 +263,28 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
 
       const detected = detectMidnightWallet();
       if (!detected) {
-        // Debug info for diagnosing wallet injection
         const w = window as any;
         const midnightKeys = w.midnight ? Object.keys(w.midnight).join(', ') : 'none';
         throw new Error(
-          `No Midnight wallet detected. ` +
-          `Install the Lace or 1AM wallet extension and ensure it is enabled for this site.\n` +
-          `(window.midnight keys: [${midnightKeys}])`
+          `No Midnight wallet detected. Install the Lace or 1AM wallet extension.\n(window.midnight keys: [${midnightKeys}])`
         );
       }
 
-      // Trigger the wallet popup
       const api = typeof detected.provider.connect === 'function'
         ? await detected.provider.connect()
         : await detected.provider.enable();
 
       if (!api) throw new Error('Wallet did not return an API. Authorization may have been rejected.');
 
-      // Guard against Cardano CIP-30 APIs
-      if (typeof api.getUtxos === 'function' && typeof api.state !== 'function') {
-        throw new Error('Detected a Cardano CIP-30 wallet instead of a Midnight wallet. Please use Lace or 1AM with Midnight support.');
+      if (typeof api.getUtxos === 'function' && typeof api.state !== 'function' && typeof api.state !== 'object') {
+        throw new Error('Detected a Cardano CIP-30 wallet instead of a Midnight wallet.');
       }
 
-      // Resolve display address (tries shielded first, then state fallback)
-      const { address, hasShielded } = await resolveDisplayAddress(api);
-
-      // Try to get coinPublicKey from state() if available
-      let cpk: string | null = null;
-      try {
-        const state = await api.state();
-        if (state && !state.indexer) cpk = state.coinPublicKey || null;
-      } catch (_) { /* ignore */ }
+      const { address, hasShielded } = await resolveDisplayAddress(api, detected.provider);
 
       setWalletApi(api);
       setWalletAddress(address);
-      setCoinPublicKey(cpk);
+      setCoinPublicKey(null);
       setWalletName(detected.name);
       setHasShieldedAccount(hasShielded);
       setStatus('connected');
@@ -264,7 +299,6 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
   const deployContractAction = useCallback(async () => {
     if (!walletApi) throw new Error('Wallet not fully connected');
 
-    // Dynamically import to avoid SSR issues with WASM
     const { deployContract } = await import('@midnight-ntwrk/midnight-js-contracts');
     const { createMidnightProviders, getCompiledContract, PRIVATE_STATE_ID } = await import('../lib/midnight');
 
@@ -279,8 +313,6 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
     });
 
     const address = deployed.deployTxData.public.contractAddress;
-
-    // Persist across sessions
     localStorage.setItem(CONTRACT_ADDRESS_STORAGE_KEY, address);
     setContractAddress(address);
 
