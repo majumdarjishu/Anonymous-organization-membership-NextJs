@@ -47,6 +47,7 @@ interface MidnightContextType {
   network: NetworkConfig;
   contractAddress: string | null;
   walletApi: any | null;
+  hasShieldedAccount: boolean;
   deployContractAction: () => Promise<string>;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
@@ -55,49 +56,100 @@ interface MidnightContextType {
 
 const MidnightContext = createContext<MidnightContextType | undefined>(undefined);
 
+/** Formats a raw wallet key into a readable name */
+function formatWalletKeyName(key: string): string {
+  return key
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/^1am$/i, '1AM Wallet')
+    .replace(/^t1am$/i, '1AM Wallet')
+    .replace(/^mnlace$/i, 'Lace Wallet')
+    .replace(/^lace$/i, 'Lace Wallet')
+    .replace(/^midnight$/i, 'Midnight Wallet');
+}
+
 function detectMidnightWallet(): { provider: any; name: string; key: string } | null {
   const w = window as any;
 
-  // Potential objects where wallets inject themselves
-  // We ONLY scan w.midnight to avoid accidentally grabbing Cardano CIP-30 APIs from w.cardano
-  const spaces = [w.midnight].filter(Boolean);
+  // Only scan window.midnight to avoid accidentally grabbing Cardano CIP-30 APIs
+  if (!w.midnight) return null;
 
   const candidates = [
-    { key: 'mnLace', name: 'Lace/1AM Wallet' },
-    { key: 'midnight', name: 'Midnight Wallet' },
-    { key: 't1am', name: '1AM Wallet (Fallback)' },
-    { key: '1am', name: '1AM Wallet (Fallback)' },
-    { key: 'lace', name: 'Lace Wallet (Fallback)' }
+    { key: 'mnLace',    label: 'Lace Wallet' },
+    { key: 'midnight',  label: 'Midnight Wallet' },
+    { key: 't1am',      label: '1AM Wallet' },
+    { key: '1am',       label: '1AM Wallet' },
+    { key: 'lace',      label: 'Lace Wallet' },
   ];
 
-  for (const space of spaces) {
-    for (const c of candidates) {
-      const p = space[c.key];
-      // Check if it's an object with an enable or connect function
-      if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
-        console.log(`Detected wallet via known key: ${c.key}`);
-        return { provider: p, name: c.name, key: c.key };
-      }
+  for (const c of candidates) {
+    const p = w.midnight[c.key];
+    if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
+      // Prefer the wallet's own name over our hardcoded label
+      const name = (typeof p.name === 'string' && p.name.trim()) ? p.name.trim() : c.label;
+      console.log(`[wallet] Detected via key "${c.key}": ${name}`);
+      return { provider: p, name, key: c.key };
     }
   }
 
-  // Fallback: scan all keys in window.midnight
-  if (w.midnight) {
-    for (const key of Object.keys(w.midnight)) {
-      const p = w.midnight[key];
-      if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
-        console.log(`Detected wallet via fallback key: ${key}`);
-        return { provider: p, name: p.name || key, key };
-      }
+  // Generic fallback: scan all keys in window.midnight
+  for (const key of Object.keys(w.midnight)) {
+    const p = w.midnight[key];
+    if (p && (typeof p.enable === 'function' || typeof p.connect === 'function')) {
+      const name = (typeof p.name === 'string' && p.name.trim()) ? p.name.trim() : formatWalletKeyName(key);
+      console.log(`[wallet] Detected via fallback key "${key}": ${name}`);
+      return { provider: p, name, key };
     }
+  }
 
-    if (typeof w.midnight.enable === 'function' || typeof w.midnight.connect === 'function') {
-      console.log(`Detected wallet directly on window.midnight`);
-      return { provider: w.midnight, name: w.midnight.name || 'Midnight Wallet', key: 'midnight' };
-    }
+  // Direct window.midnight check
+  if (typeof w.midnight.enable === 'function' || typeof w.midnight.connect === 'function') {
+    const name = (typeof w.midnight.name === 'string' && w.midnight.name.trim()) ? w.midnight.name.trim() : 'Midnight Wallet';
+    return { provider: w.midnight, name, key: 'midnight' };
   }
 
   return null;
+}
+
+/** Try multiple approaches to get the shielded address string for display */
+async function resolveDisplayAddress(api: any): Promise<{ address: string; hasShielded: boolean }> {
+  // ── Attempt 1: getShieldedAddresses() ──────────────────────────────────
+  try {
+    const addrs = typeof api.getShieldedAddresses === 'function'
+      ? await api.getShieldedAddresses()
+      : null;
+    if (Array.isArray(addrs) && addrs.length > 0) {
+      const first = addrs[0];
+      if (typeof first === 'string' && first.length > 0) {
+        return { address: first, hasShielded: true };
+      }
+      if (first && typeof first === 'object') {
+        const candidate = first.address ?? first.bech32 ?? first.value ?? first.shieldedAddress;
+        if (typeof candidate === 'string' && candidate.length > 0) {
+          return { address: candidate, hasShielded: true };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[wallet] getShieldedAddresses() failed:', e);
+  }
+
+  // ── Attempt 2: state() — may be ServiceUriConfig OR account info ───────
+  try {
+    const state = await api.state();
+    // Guard: ServiceUriConfig has `indexer`; account info has `address`/`coinPublicKey`
+    if (state && !state.indexer) {
+      const addr = state.address || state.coinPublicKey;
+      if (addr && typeof addr === 'string') {
+        return { address: addr, hasShielded: false };
+      }
+    }
+  } catch (e) {
+    console.warn('[wallet] state() fallback failed:', e);
+  }
+
+  // ── No address found ────────────────────────────────────────────────────
+  return { address: 'no-shielded-account', hasShielded: false };
 }
 
 export function MidnightProvider({ children }: { children: ReactNode }) {
@@ -107,6 +159,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WalletStatus>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [walletApi, setWalletApi] = useState<any | null>(null);
+  const [hasShieldedAccount, setHasShieldedAccount] = useState(false);
 
   // contractAddress: env var takes priority, then localStorage, then null
   const [contractAddress, setContractAddress] = useState<string | null>(
@@ -137,78 +190,73 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
     setConnectionError(null);
 
     try {
-      // Wallet must be injected by browser extension, must run client-side
       if (typeof window === 'undefined') throw new Error('Browser environment required.');
 
       const detected = detectMidnightWallet();
       if (!detected) {
-        const p1am = typeof window !== 'undefined' && (window as any).midnight && (window as any).midnight['1am'];
-        const keys = p1am ? Object.keys(p1am).join(', ') : 'null';
-        const typeOfEnable = p1am ? typeof p1am.enable : 'undefined';
+        // Debug info for diagnosing wallet injection
+        const w = window as any;
+        const midnightKeys = w.midnight ? Object.keys(w.midnight).join(', ') : 'none';
         throw new Error(
-          `No Midnight wallet detected. 1am keys: [${keys}], type of enable: ${typeOfEnable}.`
+          `No Midnight wallet detected. ` +
+          `Install the Lace or 1AM wallet extension and ensure it is enabled for this site.\n` +
+          `(window.midnight keys: [${midnightKeys}])`
         );
       }
 
-      // Call connect() or enable() — this triggers the wallet popup
-      const api = typeof detected.provider.connect === 'function' 
-        ? await detected.provider.connect() 
+      // Trigger the wallet popup
+      const api = typeof detected.provider.connect === 'function'
+        ? await detected.provider.connect()
         : await detected.provider.enable();
-      
+
       if (!api) throw new Error('Wallet did not return an API. Authorization may have been rejected.');
 
+      // Guard against Cardano CIP-30 APIs
       if (typeof api.getUtxos === 'function' && typeof api.state !== 'function') {
-        throw new Error('Detected Cardano CIP-30 API instead of Midnight API. Please ensure your wallet supports Midnight and provides the Midnight API.');
+        throw new Error('Detected a Cardano CIP-30 wallet instead of a Midnight wallet. Please use Lace or 1AM with Midnight support.');
       }
 
-      // Retrieve account state
-      let address = 'unknown';
+      // Resolve display address (tries shielded first, then state fallback)
+      const { address, hasShielded } = await resolveDisplayAddress(api);
+
+      // Try to get coinPublicKey from state() if available
       let cpk: string | null = null;
       try {
         const state = await api.state();
-        address = state.address || state.coinPublicKey || 'unknown';
-        cpk = state.coinPublicKey || null;
-      } catch (e) {
-        console.warn('Could not retrieve wallet state:', e);
-      }
+        if (state && !state.indexer) cpk = state.coinPublicKey || null;
+      } catch (_) { /* ignore */ }
 
       setWalletApi(api);
       setWalletAddress(address);
       setCoinPublicKey(cpk);
       setWalletName(detected.name);
+      setHasShieldedAccount(hasShielded);
       setStatus('connected');
     } catch (err: any) {
-      console.warn('Wallet connection error:', err);
+      console.warn('[wallet] Connection error:', err);
       setStatus('error');
-      let msg = 'Connection failed. Please try again.';
-      if (err?.message) {
-        msg = err.message;
-      } else if (typeof err === 'string') {
-        msg = err;
-      } else if (err && typeof err === 'object') {
-        msg = JSON.stringify(err);
-      }
+      const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'Connection failed.';
       setConnectionError(msg);
     }
   }, []);
 
   const deployContractAction = useCallback(async () => {
-    if (!walletApi) throw new Error("Wallet not fully connected");
-    
-    // dynamically import to avoid SSR issues with wasm
+    if (!walletApi) throw new Error('Wallet not fully connected');
+
+    // Dynamically import to avoid SSR issues with WASM
     const { deployContract } = await import('@midnight-ntwrk/midnight-js-contracts');
     const { createMidnightProviders, getCompiledContract, PRIVATE_STATE_ID } = await import('../lib/midnight');
 
     const providers = await createMidnightProviders(walletApi, network);
     const compiledContract = await getCompiledContract(network.zkConfigPathUrl);
-    
+
     const deployed = await deployContract(providers, {
       privateStateId: PRIVATE_STATE_ID,
       initialPrivateState: {},
       compiledContract: compiledContract as any,
       args: [providers.walletProvider.coinPublicKey],
     });
-    
+
     const address = deployed.deployTxData.public.contractAddress;
 
     // Persist across sessions
@@ -223,6 +271,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
     setWalletAddress(null);
     setCoinPublicKey(null);
     setWalletName('');
+    setHasShieldedAccount(false);
     setStatus('disconnected');
     setConnectionError(null);
   }, []);
@@ -237,6 +286,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
       network,
       contractAddress,
       walletApi,
+      hasShieldedAccount,
       deployContractAction,
       connectWallet,
       disconnectWallet,

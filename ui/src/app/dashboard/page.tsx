@@ -6,12 +6,17 @@ import Link from 'next/link';
 import { Wallet, Shield, Activity, Key, ArrowRight, Server, Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { status, walletAddress, walletName, coinPublicKey, network, contractAddress, connectWallet, connectionError, deployContractAction } = useMidnight();
+  const { status, walletAddress, walletName, coinPublicKey, network, contractAddress, connectWallet, connectionError, deployContractAction, hasShieldedAccount } = useMidnight();
   const [connecting, setConnecting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [deploying, setDeploying] = useState(false);
   const [deployStatus, setDeployStatus] = useState<'idle' | 'waiting' | 'submitted' | 'done' | 'error'>('idle');
   const [deployedAddress, setDeployedAddress] = useState<string | null>(contractAddress);
+
+  // Keep deployedAddress in sync with context (e.g. after localStorage hydration)
+  useEffect(() => {
+    if (contractAddress && !deployedAddress) setDeployedAddress(contractAddress);
+  }, [contractAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deployError, setDeployError] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
@@ -215,8 +220,14 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+        {!hasShieldedAccount && status === 'connected' && (
+          <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, fontSize: 13, color: '#f59e0b' }}>
+            <strong>⚠ No shielded account detected.</strong> Your wallet is connected in unshielded mode.
+            Open your Lace / 1AM extension → switch to <strong>Midnight Preprod</strong> → enable the <strong>Shielded account</strong>, then reconnect.
+          </div>
+        )}
         {deployStatus === 'error' && (
-          <div style={{ padding: '14px 18px', background: 'var(--red-dim)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, fontSize: 14, color: 'var(--red)' }}>
+          <div style={{ padding: '14px 18px', background: 'var(--red-dim)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, fontSize: 13, color: 'var(--red)', whiteSpace: 'pre-line' }}>
             {deployError}
           </div>
         )}
