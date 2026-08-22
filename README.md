@@ -9,7 +9,11 @@ Enterprise Zero-Knowledge Organization Membership & Verification built natively 
 
 ## 📸 Application Screenshots
 
-*(Placeholder for application screenshots)*
+| Screen | Description |
+|--------|-------------|
+| **Overview & Landing Page**<br>![Landing Page](screenshots/landing.png) | Hero section showcasing mathematical privacy, connected Midnight wallet, live Preprod network badge, and interactive membership exploration. |
+| **Operations & Dashboard**<br>![Dashboard](screenshots/dashboard.png) | Real-time membership control panel, wallet connection status, live Preprod blockchain state, and membership status monitoring. |
+| **Membership Check-In**<br>![Membership](screenshots/membership.png) | Private witness execution, client-side secret evaluation, and organization registration portal. |
 
 ## 🧠 Executive Summary & Problem Statement
 
