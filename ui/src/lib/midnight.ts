@@ -10,10 +10,16 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
 export const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 
-export const getCompiledContract = async (zkConfigPathUrl: string) => {
+export const getCompiledContract = async (zkConfigPathUrl: string, witnesses?: any) => {
   const Contract_Module = await import('../contracts/index');
+  
+  // The 'credential' witness expects to return a tuple of: [PrivateState, { secret: Uint8Array, membershipId: bigint }]
+  const activeWitnesses = witnesses || {
+    credential: () => [{}, { secret: new Uint8Array(32), membershipId: 0n }]
+  };
+
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
-    CompiledContract.withVacantWitnesses,
+    CompiledContract.withWitnesses(activeWitnesses),
     CompiledContract.withCompiledFileAssets(zkConfigPathUrl)
   );
 };
