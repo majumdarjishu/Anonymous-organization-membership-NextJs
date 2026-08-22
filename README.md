@@ -1,5 +1,10 @@
 # 🛡️ Anonymous Organization Membership
 
+[![Network: Midnight Preprod](https://img.shields.io/badge/Network-Midnight_Preprod-8A2BE2?style=for-the-badge&logo=polkadot&logoColor=white)](https://midnight.network/)
+[![Smart Contract: Compact](https://img.shields.io/badge/Smart_Contract-Compact-FF69B4?style=for-the-badge&logo=web3.js&logoColor=white)](https://docs.midnight.network/)
+[![Build: Passing](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
 Enterprise Zero-Knowledge Organization Membership & Verification built natively on the Midnight Network using Compact smart contracts, client-side ZK-SNARK proving, dual-state ledger privacy, and Next.js.
 
 ## 🔗 Links
