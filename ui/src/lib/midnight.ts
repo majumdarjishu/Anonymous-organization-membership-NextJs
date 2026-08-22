@@ -6,6 +6,7 @@ import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-conf
 import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-js';
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
 import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
 export const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 
@@ -140,6 +141,9 @@ export const createMidnightProviders = async (
     ? await walletApi.getConfiguration()
     : (walletApi.getConfiguration ?? walletApi.configuration ?? walletApi.state ?? {});
   const networkId = (typeof networkInfo === 'function' ? await networkInfo() : networkInfo)?.networkId ?? 'Undeployed';
+
+  // Configure the global network ID required by the address parser
+  setNetworkId(networkId);
 
   const parsedAddress = MidnightBech32m.parse(addressString).decode(ShieldedAddress, networkId);
   const coinPublicKey = parsedAddress.coinPublicKey.data;
