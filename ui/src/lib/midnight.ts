@@ -162,8 +162,13 @@ export const createMidnightProviders = async (
     },
   };
 
+  // Ensure the URL is absolute to avoid "Invalid URL" TypeError in FetchZkConfigProvider
+  const absoluteZkConfigUrl = networkConfig.zkConfigPathUrl.startsWith('/')
+    ? window.location.origin + networkConfig.zkConfigPathUrl
+    : networkConfig.zkConfigPathUrl;
+
   const zkConfigProvider = new FetchZkConfigProvider(
-    networkConfig.zkConfigPathUrl,
+    absoluteZkConfigUrl,
     fetch.bind(window)
   );
 
