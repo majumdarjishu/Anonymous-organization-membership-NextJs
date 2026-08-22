@@ -71,7 +71,7 @@ jobs:
 
       - name: Check contract file exists
         run: |
-          CONTRACT="contracts/anonymous-organization-membership.compact"
+          CONTRACT="contracts/anonymous-membership-organisation.compact"
           if [ ! -f "$CONTRACT" ]; then
             echo "❌ Contract file missing: $CONTRACT"
             exit 1
@@ -81,7 +81,7 @@ jobs:
 
       - name: Validate contract has required circuits
         run: |
-          CONTRACT="contracts/anonymous-organization-membership.compact"
+          CONTRACT="contracts/anonymous-membership-organisation.compact"
           echo "--- Checking for required circuit definitions ---"
           grep -n "circuit\|ledger\|export" "$CONTRACT" || true
           
