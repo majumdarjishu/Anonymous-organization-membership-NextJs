@@ -4,6 +4,9 @@ import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-p
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-js';
+import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
+import { Transaction } from '@midnight-ntwrk/midnight-js-types';
+import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 // The compiled contract is loaded dynamically to avoid Next.js bundling issues.
 // The contract output is copied into ui/src/contracts/ so Webpack can resolve it.
@@ -16,10 +19,9 @@ export const getCompiledContract = async (zkConfigPathUrl: string) => {
   const Contract_Module = await import('../contracts/index');
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
     CompiledContract.withVacantWitnesses,
-    CompiledContract.withCompiledFileAssets(zkConfigPathUrl),
-import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
-import { Transaction } from '@midnight-ntwrk/midnight-js-types';
-import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
+    CompiledContract.withCompiledFileAssets(zkConfigPathUrl)
+  );
+};
 
 export const createMidnightProviders = async (
   walletApi: any,
