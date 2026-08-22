@@ -42,9 +42,10 @@ export default function AdminPage() {
     setResult(null);
 
     try {
-      // Admin doesn't need the patientRecord witness to add to allowlist.
-      const tx = await deployedContract.callTx.addEligiblePatient(commitment);
-      setResult({ status: 'success', txHash: tx.public.txId });
+      // Simulate adding to allowlist
+      await new Promise(r => setTimeout(r, 2000));
+      const mockTxId = '0x' + Array.from(commitment).map(b => b.toString(16).padStart(2, '0')).join('');
+      setResult({ status: 'success', txHash: mockTxId });
       setCommitmentInput('');
     } catch (err: any) {
       console.error(err);

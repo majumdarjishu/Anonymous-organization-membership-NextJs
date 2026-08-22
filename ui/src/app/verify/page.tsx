@@ -58,6 +58,7 @@ export default function VerifyPage() {
     verified: 'Verified',
     invalid: 'Invalid',
     error: 'Error',
+    ready: 'Ready',
   }[proofState];
 
   return (
@@ -247,7 +248,7 @@ export default function VerifyPage() {
                   className="btn btn-primary"
                   onClick={handleVerify}
                   style={{ width: '100%', justifyContent: 'center' }}
-                  disabled={proofState === 'generating' || !membershipId || !secret}
+                  disabled={connecting || !membershipId || !secret}
                 >
                   <Fingerprint size={16} /> Generate Membership Proof
                 </button>

@@ -188,7 +188,7 @@ export default function MembershipPage() {
                   className="btn btn-primary"
                   onClick={handleJoin}
                   style={{ width: '100%', justifyContent: 'center' }}
-                  disabled={!membershipId || membershipState === 'joining'}
+                  disabled={!membershipId || connecting}
                 >
                   <UserPlus size={16} /> Join Organisation
                 </button>

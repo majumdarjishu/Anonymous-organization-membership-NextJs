@@ -183,7 +183,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
       privateStateId: PRIVATE_STATE_ID,
       initialPrivateState: {},
       compiledContract: compiledContract as any,
-      args: [providers.walletProvider.getCoinPublicKey()],
+      args: [providers.walletProvider.coinPublicKey],
     });
     
     return deployed.deployTxData.public.contractAddress;

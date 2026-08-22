@@ -1,0 +1,20 @@
+declare module 'lucide-react' {
+  export const Shield: any;
+  export const Lock: any;
+  export const Activity: any;
+  export const UserPlus: any;
+  export const CheckCircle: any;
+  export const AlertCircle: any;
+  export const Rocket: any;
+  export const Server: any;
+  export const FileCode: any;
+  export const AlertTriangle: any;
+  export const ArrowRight: any;
+  export const Loader2: any;
+  export const Fingerprint: any;
+  export const XCircle: any;
+  export const Eye: any;
+  export const EyeOff: any;
+  export const Clock: any;
+  export const ShieldCheck: any;
+}

@@ -49,8 +49,8 @@ export const createMidnightProviders = async (
   const walletProvider = {
     coinPublicKey,
     encryptionPublicKey,
-    getCoinPublicKey: () => coinPublicKey,
-    getEncryptionPublicKey: () => encryptionPublicKey,
+    getCoinPublicKey: () => toHex(coinPublicKey),
+    getEncryptionPublicKey: () => toHex(encryptionPublicKey),
     balanceTx: async (tx: any, _newCoins: any): Promise<any> => {
       const txHex = toHex(tx.serialize());
       const recipe = await walletApi.balanceUnsealedTransaction(txHex);
