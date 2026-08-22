@@ -17,11 +17,9 @@ export const getCompiledContract = async (zkConfigPathUrl: string) => {
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
     CompiledContract.withVacantWitnesses,
     CompiledContract.withCompiledFileAssets(zkConfigPathUrl),
-  );
-};
-
-import { toHex, fromHex, parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
+import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
 import { Transaction } from '@midnight-ntwrk/midnight-js-types';
+import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 export const createMidnightProviders = async (
   walletApi: any,
@@ -30,7 +28,7 @@ export const createMidnightProviders = async (
   if (typeof window === 'undefined') throw new Error('Cannot create providers on server');
 
   const shieldedAddresses = await walletApi.getShieldedAddresses();
-  if (!shieldedAddresses || shieldedAddresses.length === 0) {
+  if (!shieldedAddresses || !shieldedAddresses[0]) {
     throw new Error('No shielded addresses available from wallet');
   }
 
@@ -38,9 +36,14 @@ export const createMidnightProviders = async (
   const networkId = networkInfo.networkId;
 
   const addressString = shieldedAddresses[0];
+  
+  if (typeof addressString !== 'string') {
+    throw new Error(`Expected address to be a string, but got ${typeof addressString}: ${JSON.stringify(addressString)}`);
+  }
 
-  const coinPublicKey = fromHex(parseCoinPublicKeyToHex(addressString, networkId));
-  const encryptionPublicKey = fromHex(parseEncPublicKeyToHex(addressString, networkId));
+  const parsedAddress = MidnightBech32m.parse(addressString).decode(ShieldedAddress, networkId);
+  const coinPublicKey = parsedAddress.coinPublicKey.data;
+  const encryptionPublicKey = parsedAddress.encryptionPublicKey.data;
 
   const walletProvider = {
     getCoinPublicKey: () => coinPublicKey,
