@@ -111,46 +111,67 @@ function detectMidnightWallet(): { provider: any; name: string; key: string } | 
   return null;
 }
 
-/** Try multiple approaches to get the shielded address string for display */
-async function resolveDisplayAddress(api: any): Promise<{ address: string; hasShielded: boolean }> {
-  // ── Attempt 1: getShieldedAddresses() ──────────────────────────────────
-  try {
-    const addrs = typeof api.getShieldedAddresses === 'function'
-      ? await api.getShieldedAddresses()
-      : null;
-    if (Array.isArray(addrs) && addrs.length > 0) {
-      const first = addrs[0];
-      if (typeof first === 'string' && first.length > 0) {
-        return { address: first, hasShielded: true };
-      }
-      if (first && typeof first === 'object') {
-        const candidate = first.address ?? first.bech32 ?? first.value ?? first.shieldedAddress;
-        if (typeof candidate === 'string' && candidate.length > 0) {
-          return { address: candidate, hasShielded: true };
-        }
-      }
+/** Try to extract a shielded address string from any possible return value */
+function extractAddressString(raw: any): string | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'string' && raw.length > 0) return raw;
+  if (raw instanceof Uint8Array && raw.length > 0)
+    return Array.from(raw as Uint8Array).map((b: number) => b.toString(16).padStart(2, '0')).join('');
+  if (Array.isArray(raw) && raw.length > 0) {
+    for (const item of raw) { const r = extractAddressString(item); if (r) return r; }
+    return null;
+  }
+  if (typeof raw === 'object') {
+    const knownKeys = ['address', 'shieldedAddress', 'bech32', 'value', 'addr', 'coinPublicKey'];
+    for (const k of knownKeys) {
+      if (typeof raw[k] === 'string' && raw[k].length > 0) return raw[k];
     }
-  } catch (e) {
-    console.warn('[wallet] getShieldedAddresses() failed:', e);
+    for (const v of Object.values(raw)) {
+      if (typeof v === 'string' && (v.startsWith('mn') || (v as string).length > 20)) return v as string;
+    }
+  }
+  return null;
+}
+
+/** Resolve display address from wallet API — tries all known methods and formats */
+async function resolveDisplayAddress(api: any): Promise<{ address: string; hasShielded: boolean }> {
+  const methodsToTry = ['getShieldedAddresses', 'getShieldedAddress', 'shieldedAddresses', 'getAddresses'];
+
+  for (const methodName of methodsToTry) {
+    if (typeof api[methodName] !== 'function') continue;
+    try {
+      const raw = await api[methodName]();
+      console.log(`[wallet-connect] ${methodName}() raw:`, JSON.stringify(raw, (_k, v) =>
+        v instanceof Uint8Array ? `Uint8Array(${(v as Uint8Array).length})` : v
+      ));
+      const addr = extractAddressString(raw);
+      if (addr) return { address: addr, hasShielded: true };
+    } catch (e) {
+      console.warn(`[wallet-connect] ${methodName}() failed:`, e);
+    }
   }
 
-  // ── Attempt 2: state() — may be ServiceUriConfig OR account info ───────
+  // Fallback: scan state() for any mn-prefixed value or account info
   try {
     const state = await api.state();
-    // Guard: ServiceUriConfig has `indexer`; account info has `address`/`coinPublicKey`
-    if (state && !state.indexer) {
-      const addr = state.address || state.coinPublicKey;
-      if (addr && typeof addr === 'string') {
-        return { address: addr, hasShielded: false };
+    console.log('[wallet-connect] state() raw:', JSON.stringify(state));
+    if (state && typeof state === 'object') {
+      for (const v of Object.values(state)) {
+        if (typeof v === 'string' && (v as string).startsWith('mn') && (v as string).length > 10)
+          return { address: v as string, hasShielded: true };
+      }
+      if (!state.indexer) {
+        const addr = state.address || state.coinPublicKey;
+        if (addr && typeof addr === 'string') return { address: addr, hasShielded: false };
       }
     }
   } catch (e) {
-    console.warn('[wallet] state() fallback failed:', e);
+    console.warn('[wallet-connect] state() failed:', e);
   }
 
-  // ── No address found ────────────────────────────────────────────────────
   return { address: 'no-shielded-account', hasShielded: false };
 }
+
 
 export function MidnightProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);

@@ -7,13 +7,8 @@ import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-j
 import { toHex, fromHex } from '@midnight-ntwrk/midnight-js-utils';
 import { MidnightBech32m, ShieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 
-// The compiled contract is loaded dynamically to avoid Next.js bundling issues.
-// The contract output is copied into ui/src/contracts/ so Webpack can resolve it.
-// Original source: contracts/managed/anonymous-membership-organisation/contract/index.js
 export const PRIVATE_STATE_ID = 'anonymousMembershipPrivateState';
 
-// Since we are running in the browser, the zkConfigPath should be an HTTP URL
-// pointing to where Next.js serves the 'zkir' and 'keys' directories (e.g., inside public/contracts/)
 export const getCompiledContract = async (zkConfigPathUrl: string) => {
   const Contract_Module = await import('../contracts/index');
   return CompiledContract.make('anonymous-membership-organisation', Contract_Module.Contract).pipe(
@@ -23,48 +18,113 @@ export const getCompiledContract = async (zkConfigPathUrl: string) => {
 };
 
 /**
- * Resolve the shielded address string from the wallet API.
- * Tries multiple sources in order:
- *   1. walletApi.getShieldedAddresses()  — preferred, may return string[] or object[]
- *   2. walletApi.state().address         — fallback for wallets that embed it in state
+ * Tries to extract a shielded address string from any possible return value.
+ * Handles: string, string[], object[], Uint8Array[], nested objects, etc.
+ */
+function extractAddressFromResult(raw: any): string | null {
+  if (raw === null || raw === undefined) return null;
+
+  // Plain string
+  if (typeof raw === 'string' && raw.length > 0) return raw;
+
+  // Uint8Array — coin public key, encode as hex
+  if (raw instanceof Uint8Array && raw.length > 0) {
+    return Array.from(raw).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Array of any of the above
+  if (Array.isArray(raw) && raw.length > 0) {
+    for (const item of raw) {
+      const extracted = extractAddressFromResult(item);
+      if (extracted) return extracted;
+    }
+    return null;
+  }
+
+  // Object — try known key names first
+  if (typeof raw === 'object') {
+    const knownKeys = ['address', 'shieldedAddress', 'bech32', 'value', 'addr', 'coinPublicKey'];
+    for (const k of knownKeys) {
+      if (typeof raw[k] === 'string' && raw[k].length > 0) return raw[k];
+    }
+    // Scan all string values for anything that looks like a Midnight address
+    for (const v of Object.values(raw)) {
+      if (typeof v === 'string' && (v.startsWith('mn') || v.length > 20)) return v;
+    }
+    // Scan nested arrays/objects one level deep
+    for (const v of Object.values(raw)) {
+      if (typeof v !== 'string' && v !== null && typeof v === 'object') {
+        const extracted = extractAddressFromResult(v);
+        if (extracted) return extracted;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a shielded address string from the wallet API using exhaustive fallbacks.
+ * Tries multiple method names and return value formats.
  */
 async function resolveShieldedAddress(walletApi: any): Promise<string> {
-  // ── Attempt 1: getShieldedAddresses() ──────────────────────────────────────
+  const methodsToTry = [
+    'getShieldedAddresses',
+    'getShieldedAddress',
+    'shieldedAddresses',
+    'getAddresses',
+  ];
+
+  let lastRaw: any = undefined;
+
+  // ── Attempt 1: known getter methods ────────────────────────────────────────
+  for (const methodName of methodsToTry) {
+    if (typeof walletApi[methodName] !== 'function') continue;
+    try {
+      const raw = await walletApi[methodName]();
+      console.log(`[midnight] ${methodName}() raw:`, JSON.stringify(raw, (_k, v) =>
+        v instanceof Uint8Array ? `Uint8Array(${v.length})` : v
+      ));
+      lastRaw = raw;
+      const addr = extractAddressFromResult(raw);
+      if (addr) {
+        console.log(`[midnight] Resolved address via ${methodName}():`, addr.slice(0, 20) + '…');
+        return addr;
+      }
+    } catch (e) {
+      console.warn(`[midnight] ${methodName}() threw:`, e);
+    }
+  }
+
+  // ── Attempt 2: state() — scan all values for shielded address pattern ──────
   try {
-    const addrs = await walletApi.getShieldedAddresses();
-    if (Array.isArray(addrs) && addrs.length > 0) {
-      const first = addrs[0];
-      // Addresses may be plain strings or objects like { address: "mn1..." }
-      if (typeof first === 'string' && first.length > 0) return first;
-      if (first && typeof first === 'object') {
-        const candidate = first.address ?? first.bech32 ?? first.value ?? first.shieldedAddress;
-        if (typeof candidate === 'string' && candidate.length > 0) return candidate;
+    const state = await walletApi.state();
+    console.log('[midnight] state() raw:', JSON.stringify(state));
+    if (state && typeof state === 'object') {
+      // Look for any string starting with "mn" (Midnight bech32m prefix)
+      for (const [k, v] of Object.entries(state)) {
+        if (typeof v === 'string' && v.startsWith('mn') && v.length > 10) {
+          console.log(`[midnight] Found shielded address in state.${k}`);
+          return v;
+        }
       }
     }
   } catch (e) {
-    console.warn('[midnight] getShieldedAddresses() failed:', e);
+    console.warn('[midnight] state() threw:', e);
   }
 
-  // ── Attempt 2: wallet state address ────────────────────────────────────────
-  try {
-    const state = await walletApi.state();
-    const stateAddr = state?.address;
-    // Midnight shielded addresses start with "mn" (bech32m prefix)
-    if (typeof stateAddr === 'string' && stateAddr.startsWith('mn')) {
-      console.warn('[midnight] Using state().address as shielded address fallback.');
-      return stateAddr;
-    }
-  } catch (e) {
-    console.warn('[midnight] state() fallback failed:', e);
-  }
+  // ── All methods exhausted ───────────────────────────────────────────────────
+  const debugRaw = lastRaw !== undefined
+    ? `\n\ngetShieldedAddresses() returned: ${JSON.stringify(lastRaw)}`
+    : '\n\ngetShieldedAddresses() returned nothing or is not a function.';
 
-  // ── All attempts exhausted ─────────────────────────────────────────────────
   throw new Error(
-    'No shielded addresses found in your wallet.\n\n' +
-    'To fix this, open your Lace / 1AM wallet extension and:\n' +
-    '  1. Switch to the Midnight Preprod network\n' +
-    '  2. Create / enable a Shielded account (not just the transparent/unshielded one)\n' +
-    '  3. Wait for the wallet to sync, then try again'
+    'No shielded addresses found in your wallet.' +
+    debugRaw +
+    '\n\nIf you have a shielded account set up:\n' +
+    '• Reload the wallet extension and wait for it to sync\n' +
+    '• Disconnect and reconnect the wallet\n' +
+    '• Check the browser console for the raw value above'
   );
 }
 
