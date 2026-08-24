@@ -144,7 +144,26 @@ export default function DashboardPage() {
             <Key size={16} color="#a78bfa" />
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: deployedAddress ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all', marginBottom: 4 }}>
-            {deployedAddress ? `${deployedAddress.slice(0, 18)}…` : 'Not configured'}
+            {deployedAddress ? (
+              <a 
+                href={`https://explorer.preprod.midnight.network/address/${deployedAddress}`} 
+                target="_blank" 
+                rel="noreferrer" 
+                style={{ 
+                  color: '#fff', 
+                  textDecoration: 'none', 
+                  padding: '6px 10px', 
+                  background: 'var(--accent)', 
+                  borderRadius: 6, 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(124, 92, 252, 0.2)'
+                }}
+              >
+                {deployedAddress.slice(0, 10)}…{deployedAddress.slice(-8)} ↗
+              </a>
+            ) : 'Not configured'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Organisation registry</div>
         </div>

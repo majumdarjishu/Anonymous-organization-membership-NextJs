@@ -233,7 +233,7 @@ export function MidnightProvider({ children }: { children: ReactNode }) {
   const [hasShieldedAccount, setHasShieldedAccount] = useState(false);
 
   const [contractAddress, setContractAddress] = useState<string | null>(
-    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || null
+    process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'c340a2b0427dc519342ee344a54b23651420413b35142442635d9eab9aae610d'
   );
 
   useEffect(() => {
