@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: 13, fontWeight: 600, color: deployedAddress ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all', marginBottom: 4 }}>
             {deployedAddress ? (
               <a 
-                href={`https://explorer.preprod.midnight.network/transactions/${deployedAddress}`} 
+                href={`https://preview.midnightexplorer.com/contracts/${deployedAddress}`} 
                 target="_blank" 
                 rel="noreferrer" 
                 style={{ 
@@ -191,7 +191,7 @@ export default function DashboardPage() {
       <div className="card" style={{ padding: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <Server size={20} color="var(--accent)" />
-          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Contract Deployment</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Contract Status</h2>
         </div>
 
         {/* Readiness checklist */}
@@ -210,44 +210,10 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Deploy button and status */}
-        {deployStatus === 'idle' && (
-          <button
-            className="btn btn-primary"
-            onClick={handleDeploy}
-            disabled={status !== 'connected'}
-          >
-            <Server size={16} /> Deploy Contract
-          </button>
-        )}
-
-        {deployStatus === 'waiting' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
-            <span className="spinner" /> Waiting for wallet approval…
-          </div>
-        )}
-        {deployStatus === 'submitted' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
-            <span className="spinner" /> Transaction submitted. Waiting for confirmation…
-          </div>
-        )}
-        {deployStatus === 'done' && (
-          <div style={{ padding: '14px 18px', background: 'var(--green-dim)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, fontSize: 14 }}>
-            <div style={{ fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>✓ Contract Deployed</div>
-            <div style={{ color: 'var(--text-secondary)' }}>
-              Set <code style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--accent)' }}>NEXT_PUBLIC_CONTRACT_ADDRESS</code> in your <code style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--accent)' }}>.env.local</code> to the deployed address.
-            </div>
-          </div>
-        )}
         {!hasShieldedAccount && status === 'connected' && (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 10, fontSize: 13, color: '#f59e0b' }}>
             <strong>⚠ No shielded account detected.</strong> Your wallet is connected in unshielded mode.
             Open your Lace / 1AM extension → switch to <strong>Midnight Preprod</strong> → enable the <strong>Shielded account</strong>, then reconnect.
-          </div>
-        )}
-        {deployStatus === 'error' && (
-          <div style={{ padding: '14px 18px', background: 'var(--red-dim)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, fontSize: 13, color: 'var(--red)', whiteSpace: 'pre-line' }}>
-            {deployError}
           </div>
         )}
       </div>
