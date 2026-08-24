@@ -1,4 +1,5 @@
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
+import { Transaction } from '@midnight-ntwrk/ledger-v8';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
@@ -173,10 +174,20 @@ export const createMidnightProviders = async (
         txHex = toHex(tx);
       }
       
-      await walletApi.submitTransaction(txHex);
+      const res = await walletApi.submitTransaction(txHex);
+      if (res && typeof res === 'string') {
+        return res;
+      }
       
       if (typeof tx === 'object' && typeof tx.transactionHash === 'function') {
         return tx.transactionHash();
+      }
+      
+      try {
+        const deserialized = Transaction.deserialize('SignatureEnabled', 'Proof', 'Binding', tx);
+        return deserialized.transactionHash();
+      } catch (e) {
+        console.error("Failed to deserialize transaction to get hash", e);
       }
       
       throw new Error("Could not determine transaction hash from tx object.");
