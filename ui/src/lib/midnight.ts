@@ -1,6 +1,5 @@
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { Transaction } from '@midnight-ntwrk/ledger-v8';
-import { blake2AsHex } from '@polkadot/util-crypto';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
@@ -184,17 +183,22 @@ export const createMidnightProviders = async (
         return tx.transactionHash();
       }
       
-      // Definitive fallback: Hash the transaction bytes using Blake2b-256 (standard for Midnight)
+      // The wallet handles signing/sealing, which changes the final transaction hash.
+      // Since older wallet APIs do not return the hash, and we cannot compute it here,
+      // we will directly ask the user to paste the hash from their wallet history!
       try {
-        if (tx instanceof Uint8Array || (typeof tx === 'object' && tx.length !== undefined)) {
-          const hash = blake2AsHex(tx, 256);
-          // Remove 0x prefix because Midnight expects raw hex
-          const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
-          console.log("[midnight] Computed txHash via blake2b:", cleanHash);
-          return cleanHash;
+        if (typeof window !== 'undefined') {
+          const userHash = window.prompt(
+            "Wallet API did not return the transaction hash automatically.\n\n" +
+            "Please open your Lace wallet, go to Activity, find the latest transaction, " +
+            "copy its Transaction ID, and paste it here so the DApp can confirm the deployment:"
+          );
+          if (userHash && userHash.trim().length > 10) {
+            return userHash.trim();
+          }
         }
       } catch (e) {
-        console.warn("Failed to hash transaction", e);
+        console.warn("Failed to prompt user for hash", e);
       }
       
       throw new Error("Could not determine transaction hash from tx object.");
