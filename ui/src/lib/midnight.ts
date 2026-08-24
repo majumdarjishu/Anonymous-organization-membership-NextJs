@@ -166,9 +166,20 @@ export const createMidnightProviders = async (
       return fromHex(recipe.tx);
     },
     submitTx: async (tx: any): Promise<string> => {
-      const txHex = toHex(tx);
+      let txHex: string;
+      if (typeof tx === 'object' && typeof tx.serialize === 'function') {
+        txHex = toHex(tx.serialize());
+      } else {
+        txHex = toHex(tx);
+      }
+      
       await walletApi.submitTransaction(txHex);
-      return 'submitted';
+      
+      if (typeof tx === 'object' && typeof tx.transactionHash === 'function') {
+        return tx.transactionHash();
+      }
+      
+      throw new Error("Could not determine transaction hash from tx object.");
     },
   };
 
