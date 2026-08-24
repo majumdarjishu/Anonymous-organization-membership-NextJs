@@ -12,7 +12,7 @@ Enterprise Zero-Knowledge Organization Membership & Verification built natively 
 [![Live Video](https://img.shields.io/badge/YouTube-Live_Video-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=D4IRcmAV-2Q)
 [![Live Deployment](https://img.shields.io/badge/Vercel-Live_Deployment-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://anonymous-organization-membership-n.vercel.app/)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/majumdarjishu/Anonymous-organization-membership-NextJs)
-[![Contract Address](https://img.shields.io/badge/Contract-c340a2b...610d-8A2BE2?style=for-the-badge&logo=polkadot&logoColor=white)](https://explorer.preprod.midnight.network/transactions/c340a2b0427dc519342ee344a54b23651420413b35142442635d9eab9aae610d)
+[![Contract Address](https://img.shields.io/badge/Contract-c340a2b...610d-8A2BE2?style=for-the-badge&logo=polkadot&logoColor=white)](https://preview.midnightexplorer.com/contracts/c340a2b0427dc519342ee344a54b23651420413b35142442635d9eab9aae610d)
 
 **Deployed Contract Address (Preprod):** `c340a2b0427dc519342ee344a54b23651420413b35142442635d9eab9aae610d`
 
