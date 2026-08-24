@@ -184,7 +184,7 @@ export const createMidnightProviders = async (
       }
       
       try {
-        const deserialized = Transaction.deserialize('SignatureEnabled', 'Proof', 'Binding', tx);
+        const deserialized = Transaction.deserialize('signature', 'proof', 'binding', tx);
         return deserialized.transactionHash();
       } catch (e) {
         console.error("Failed to deserialize transaction to get hash", e);
