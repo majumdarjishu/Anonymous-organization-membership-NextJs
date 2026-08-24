@@ -146,7 +146,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: 13, fontWeight: 600, color: deployedAddress ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all', marginBottom: 4 }}>
             {deployedAddress ? (
               <a 
-                href={`https://explorer.preprod.midnight.network/address/${deployedAddress}`} 
+                href={`https://explorer.preprod.midnight.network/transactions/${deployedAddress}`} 
                 target="_blank" 
                 rel="noreferrer" 
                 style={{ 
