@@ -1,5 +1,6 @@
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { Transaction } from '@midnight-ntwrk/ledger-v8';
+import { blake2AsHex } from '@polkadot/util-crypto';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
@@ -183,25 +184,17 @@ export const createMidnightProviders = async (
         return tx.transactionHash();
       }
       
+      // Definitive fallback: Hash the transaction bytes using Blake2b-256 (standard for Midnight)
       try {
-        const deserialized = Transaction.deserialize('signature', 'proof', 'binding', tx);
-        return deserialized.transactionHash();
-      } catch (e) {
-        console.warn("Failed to deserialize transaction to get hash", e);
-      }
-      
-      try {
-        if (typeof walletApi.getTxHistory === 'function') {
-          for (let i = 0; i < 5; i++) {
-             await new Promise(r => setTimeout(r, 1000));
-             const history = await walletApi.getTxHistory(0, 5);
-             if (history && history.length > 0 && history[0].txHash) {
-                return history[0].txHash;
-             }
-          }
+        if (tx instanceof Uint8Array || (typeof tx === 'object' && tx.length !== undefined)) {
+          const hash = blake2AsHex(tx, 256);
+          // Remove 0x prefix because Midnight expects raw hex
+          const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+          console.log("[midnight] Computed txHash via blake2b:", cleanHash);
+          return cleanHash;
         }
       } catch (e) {
-        console.warn("Failed to fetch tx history from wallet", e);
+        console.warn("Failed to hash transaction", e);
       }
       
       throw new Error("Could not determine transaction hash from tx object.");
