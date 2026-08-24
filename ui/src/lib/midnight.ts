@@ -187,7 +187,21 @@ export const createMidnightProviders = async (
         const deserialized = Transaction.deserialize('signature', 'proof', 'binding', tx);
         return deserialized.transactionHash();
       } catch (e) {
-        console.error("Failed to deserialize transaction to get hash", e);
+        console.warn("Failed to deserialize transaction to get hash", e);
+      }
+      
+      try {
+        if (typeof walletApi.getTxHistory === 'function') {
+          for (let i = 0; i < 5; i++) {
+             await new Promise(r => setTimeout(r, 1000));
+             const history = await walletApi.getTxHistory(0, 5);
+             if (history && history.length > 0 && history[0].txHash) {
+                return history[0].txHash;
+             }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch tx history from wallet", e);
       }
       
       throw new Error("Could not determine transaction hash from tx object.");
